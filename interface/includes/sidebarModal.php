@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 ?>
 
-<div class="sidebar bg-dark shadow-sm" style="min-height: 100vh; width: 250px;">
+<div class="sidebar shadow-sm" style="min-height: 100vh; width: 250px;">
     <div class="p-4">
         <!-- Logo and Title Section -->
         <div class="d-flex align-items-center mb-4">
@@ -34,14 +34,35 @@ if (!isset($_SESSION['user_id'])) {
                     </a>
                 </li>
                 <?php endif; ?>
-                
+<!--                 
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="resources.php">
                         <i class="bi bi-book"></i>
                         <span>Resources</span>
                     </a>
+                </li> -->
+
+                 <?php
+                    // Ensure the user is logged in and check their role
+                    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+                    ?>
+                <li class="nav-item dropdown">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
+                    href="resources.php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-book"></i>
+                        <span>Resources</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
+                        <!-- <li><a class="dropdown-item text-light" href="resources.php">All Resources</a></li> -->
+                        <li><a class="dropdown-item text-light" href="books.php">Books</a></li>
+                        <li><a class="dropdown-item text-light" href="periodicals.php">Periodicals</a></li>
+                        <li><a class="dropdown-item text-light" href="media-resources.php">Media</a></li>
+                    </ul>
                 </li>
-                
+                <?php 
+                } 
+                ?>
+                                
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrowings.php">
                         <i class="bi bi-arrow-left-right"></i>
@@ -63,10 +84,22 @@ if (!isset($_SESSION['user_id'])) {
 <style>
 /* General Sidebar Styles */
 .sidebar {
-    background-color: #1a202c;
+    background-color: #003161;
     width: 250px;
     display: flex;
     flex-direction: column;
+}
+
+/* Dropdown Menu Styles */
+.dropdown-menu.dropdown-custom {
+    background-color: #133E87 !important; /* Updated dropdown background color */
+    border: none;
+}
+
+/* Dropdown Item Hover Styles */
+.dropdown-menu .dropdown-item:hover {
+    background-color: #2d5fa8 !important; /* Optional hover color for dropdown items */
+    color: #fff; /* Optional text color */
 }
 
 /* Profile Section */
