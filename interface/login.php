@@ -23,42 +23,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Library Management System - Login</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/3.5.0/remixicon.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <div class="container">
-        <div class="row justify-content-center mt-5">
-            <div class="col-md-6 col-lg-4">
-                <div class="card shadow">
-                    <div class="card-body p-4">
-                        <h3 class="text-center mb-4">Library Management</h3>
-                        
-                        <?php if (isset($error_message)): ?>
-                            <div class="alert alert-danger" role="alert">
-                                <?php echo htmlspecialchars($error_message); ?>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <form method="POST" action="">
-                            <div class="mb-3">
-                                <label for="username" class="form-label">Username</label>
-                                <input type="text" class="form-control" id="username" name="username" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
-                            </div>
-                            
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">Login</button>
-                            </div>
-                        </form>
-                    </div>
+<body class="bg-sky-200 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="bg-white shadow-2xl rounded-xl overflow-hidden transform transition-all duration-300 hover:scale-[1.02]">
+            <div class="p-8">
+                <div class="flex justify-center mb-6">
+                    <i class="ri-book-2-line text-5xl text-sky-600"></i>
                 </div>
+                <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">
+                    Library Management
+                </h2>
+
+                <?php if (isset($error_message)): ?>
+                    <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4 flex items-center">
+                        <i class="ri-error-warning-line mr-3 text-xl"></i>
+                        <span><?php echo htmlspecialchars($error_message); ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST" action="" class="space-y-4">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                            Username
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                <i class="ri-user-line text-gray-400"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                id="username" 
+                                name="username" 
+                                required 
+                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition duration-300"
+                                placeholder="Enter your username"
+                            >
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                            Password
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center">
+                                <i class="ri-lock-line text-gray-400"></i>
+                            </span>
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                required 
+                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition duration-300"
+                                placeholder="Enter your password"
+                            >
+                        </div>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        class="w-full bg-sky-600 text-white py-2 rounded-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:scale-[1.02] flex items-center justify-center"
+                    >
+                        <i class="ri-login-box-line mr-2"></i>
+                        Login
+                    </button>
+                </form>
             </div>
         </div>
+        <div class="text-center mt-4 text-sm text-gray-600">
+            © <?php echo date('Y'); ?> Library Management System
+        </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

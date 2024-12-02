@@ -133,7 +133,14 @@ $error_message = Session::getFlash('error');
                                     <td><?php echo htmlspecialchars($periodical['volume']); ?></td>
                                     <td><?php echo htmlspecialchars($periodical['issue']); ?></td>
                                     <td><?php echo htmlspecialchars($periodical['category']); ?></td>
-                                    <td><?php echo htmlspecialchars($periodical['status']); ?></td>
+                                    <td>
+                                        <span class="badge 
+                                        <?php 
+                                        echo $periodical['status'] === 'available' ? 'bg-success' : 'bg-warning'; 
+                                        ?>">
+                                            <?php echo ucfirst(htmlspecialchars($periodical['status'])); ?>
+                                        </span>
+                                    </td>
                                     <td>
                                         <button class="btn btn-sm btn-warning edit-periodical" 
                                                 data-bs-toggle="modal" 

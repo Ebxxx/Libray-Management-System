@@ -34,13 +34,6 @@ if (!isset($_SESSION['user_id'])) {
                     </a>
                 </li>
                 <?php endif; ?>
-<!--                 
-                <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="resources.php">
-                        <i class="bi bi-book"></i>
-                        <span>Resources</span>
-                    </a>
-                </li> -->
 
                  <?php
                     // Ensure the user is logged in and check their role
@@ -59,17 +52,73 @@ if (!isset($_SESSION['user_id'])) {
                         <li><a class="dropdown-item text-light" href="media-resources.php">Media</a></li>
                     </ul>
                 </li>
-                <?php 
-                } 
-                ?>
-                                
+                <?php  } ?>
+
+                <!-- Borrow books, periodicals and media section for student and faculty -->
+                <?php
+                    // Ensure the user is logged in and check their role
+                    if (isset($_SESSION['role']) && $_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty') {
+                    ?>
+                <li class="nav-item dropdown">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
+                    href=".php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-book"></i>
+                        <span>Borrow</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
+                        <!-- <li><a class="dropdown-item text-light" href="resources.php">All Resources</a></li> -->
+                        <li><a class="dropdown-item text-light" href=".php">Books</a></li>
+                        <li><a class="dropdown-item text-light" href=".php">Periodicals</a></li>
+                        <li><a class="dropdown-item text-light" href=".php">Media</a></li>
+                    </ul>
+                </li>
+                <?php }?>
+                     
+                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrowings.php">
                         <i class="bi bi-arrow-left-right"></i>
                         <span>Borrowings</span>
                     </a>
                 </li>
-                
+                <?php endif; ?>
+
+                <?php if ($_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty'): ?>
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrowings.php">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span>Borrowing History</span>
+                    </a>
+                </li>
+                <?php endif; ?>
+
+                      <!-- Over due management section -->
+                     <!-- Ensure the user is logged in and check their role -->
+                <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff') { ?>
+                <li class="nav-item dropdown">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
+                    href=".php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-calendar2-x"></i>
+                        <span>Over due management</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
+                        <li><a class="dropdown-item text-light" href=".php">Over due</a></li>
+                        <li><a class="dropdown-item text-light" href=".php">Fines</a></li>
+                    </ul>
+                </li>
+                <?php 
+                } 
+                ?>
+
+                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="users.php">
+                            <i class="bi bi-file-earmark-bar-graph"></i>
+                            <span>Report</span>
+                        </a>
+                    </li>
+                <?php endif; ?>
+                    
                 <li class="nav-item mt-4">
                     <a class="nav-link d-flex align-items-center gap-2 text-danger rounded py-2 px-3" href="logout.php">
                         <i class="bi bi-box-arrow-right"></i>

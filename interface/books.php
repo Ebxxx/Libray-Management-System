@@ -132,7 +132,14 @@ $error_message = Session::getFlash('error');
                                     <td><?php echo htmlspecialchars($book['author']); ?></td>
                                     <td><?php echo htmlspecialchars($book['isbn']); ?></td>
                                     <td><?php echo htmlspecialchars($book['category']); ?></td>
-                                    <td><?php echo htmlspecialchars($book['status']); ?></td>
+                                    <td>
+                                        <span class="badge 
+                                        <?php 
+                                        echo $book['status'] === 'available' ? 'bg-success' : 'bg-warning'; 
+                                        ?>">
+                                            <?php echo ucfirst(htmlspecialchars($book['status'])); ?>
+                                        </span>
+                                    </td>
                                     <td>
                                         <button class="btn btn-sm btn-warning edit-book" 
                                                 data-bs-toggle="modal" 
