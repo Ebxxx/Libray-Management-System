@@ -61,15 +61,15 @@ if (!isset($_SESSION['user_id'])) {
                     ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
-                    href=".php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    href="resources.php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-book"></i>
                         <span>Borrow</span>
                     </a>
                     <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
                         <!-- <li><a class="dropdown-item text-light" href="resources.php">All Resources</a></li> -->
-                        <li><a class="dropdown-item text-light" href=".php">Books</a></li>
-                        <li><a class="dropdown-item text-light" href=".php">Periodicals</a></li>
-                        <li><a class="dropdown-item text-light" href=".php">Media</a></li>
+                        <li><a class="dropdown-item text-light" href="borrow-books.php">Books</a></li>
+                        <li><a class="dropdown-item text-light" href="borrow-periodicals.php">Periodicals</a></li>
+                        <li><a class="dropdown-item text-light" href="borrow-media.php">Media</a></li>
                     </ul>
                 </li>
                 <?php }?>
@@ -85,7 +85,7 @@ if (!isset($_SESSION['user_id'])) {
 
                 <?php if ($_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty'): ?>
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrowings.php">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrowing_history.php">
                         <i class="bi bi-arrow-left-right"></i>
                         <span>Borrowing History</span>
                     </a>
