@@ -59,26 +59,35 @@ if (!isset($_SESSION['user_id'])) {
                     // Ensure the user is logged in and check their role
                     if (isset($_SESSION['role']) && $_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty') {
                     ?>
-                <li class="nav-item dropdown">
+                <!-- <li class="nav-item dropdown">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
                     href="resources.php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-book"></i>
                         <span>Borrow</span>
                     </a>
-                    <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
+                    <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown"> -->
                         <!-- <li><a class="dropdown-item text-light" href="resources.php">All Resources</a></li> -->
-                        <li><a class="dropdown-item text-light" href="borrow-books.php">Books</a></li>
+                        <!-- <li><a class="dropdown-item text-light" href="borrow-resources.php">Resources</a></li>
                         <li><a class="dropdown-item text-light" href="borrow-periodicals.php">Periodicals</a></li>
                         <li><a class="dropdown-item text-light" href="borrow-media.php">Media</a></li>
                     </ul>
-                </li>
+                </li> -->
                 <?php }?>
                      
-                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+                <!-- <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrowings.php">
                         <i class="bi bi-arrow-left-right"></i>
                         <span>Borrowings</span>
+                    </a>
+                </li>
+                <?php endif; ?> -->
+
+                <?php if ($_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty'): ?>
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="borrow-resources.php">
+                        <i class="bi bi-book"></i>
+                        <span>Borrow Resources</span>
                     </a>
                 </li>
                 <?php endif; ?>
@@ -97,13 +106,14 @@ if (!isset($_SESSION['user_id'])) {
                 <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff') { ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
-                    href=".php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    href="overdue-management.php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-calendar2-x"></i>
-                        <span>Over due management</span>
+                        <span>Borrowing management</span>
                     </a>
                     <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
-                        <li><a class="dropdown-item text-light" href=".php">Over due</a></li>
-                        <li><a class="dropdown-item text-light" href=".php">Fines</a></li>
+                    <li><a class="dropdown-item text-light" href="borrowings.php">Borrowings</a></li>
+                        <li><a class="dropdown-item text-light" href="overdue-management.php">Over due</a></li>
+                        <li><a class="dropdown-item text-light" href="payment-history.php">Payment History</a></li>
                     </ul>
                 </li>
                 <?php 
