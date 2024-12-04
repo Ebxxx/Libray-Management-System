@@ -168,4 +168,18 @@ class MediaResourceController {
             return null;
         }
     }
+
+    // Get total media resources
+    public function getTotalMediaResources() {
+        try {
+            $query = "SELECT COUNT(*) as total FROM media_resources";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['total'];
+        } catch (PDOException $e) {
+            error_log("Get total media resources error: " . $e->getMessage());
+            return 0;
+        }
+    }
 }

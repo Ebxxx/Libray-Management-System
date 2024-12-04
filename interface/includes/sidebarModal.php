@@ -122,7 +122,7 @@ if (!isset($_SESSION['user_id'])) {
 
                 <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="users.php">
+                        <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="generate-report.php">
                             <i class="bi bi-file-earmark-bar-graph"></i>
                             <span>Report</span>
                         </a>

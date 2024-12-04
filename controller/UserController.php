@@ -205,4 +205,28 @@ class UserController {
             return false;
         }
     }
+
+    public function getUserStatistics() {
+        try {
+            $query = "SELECT 
+                        COUNT(*) as total_users,
+                        SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) as student_count,
+                        SUM(CASE WHEN role = 'faculty' THEN 1 ELSE 0 END) as faculty_count,
+                        SUM(CASE WHEN role = 'staff' THEN 1 ELSE 0 END) as staff_count,
+                        SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count
+                      FROM users";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get user statistics error: " . $e->getMessage());
+            return [
+                'total_users' => 0,
+                'student_count' => 0,
+                'faculty_count' => 0,
+                'staff_count' => 0,
+                'admin_count' => 0
+            ];
+        }
+    }
 }

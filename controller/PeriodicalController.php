@@ -170,4 +170,18 @@ class PeriodicalController {
             return null;
         }
     }
+
+    // Get total periodicals
+    public function getTotalPeriodicals() {
+        try {
+            $query = "SELECT COUNT(*) as total FROM periodicals";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['total'];
+        } catch (PDOException $e) {
+            error_log("Get total periodicals error: " . $e->getMessage());
+            return 0;
+        }
+    }
 }

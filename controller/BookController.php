@@ -191,4 +191,18 @@ class BookController {
             return null;
         }
     }
+
+    // Get total books
+    public function getTotalBooks() {
+        try {
+            $query = "SELECT COUNT(*) as total FROM books";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['total'];
+        } catch (PDOException $e) {
+            error_log("Get total books error: " . $e->getMessage());
+            return 0;
+        }
+    }
 }
