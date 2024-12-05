@@ -52,3 +52,4 @@ document.getElementById('bookModal').addEventListener('hidden.bs.modal', functio
     document.getElementById('modal-submit-btn').textContent = 'Add Book';
     this.querySelector('form').reset();
 });
+

@@ -230,4 +230,41 @@ class ResourceController {
         }
     }
     
+    public function getTotalBooks() {
+        $bookController = new BookController();
+        return $bookController->getTotalBooks();
+    }
+
+    public function getTotalMediaResources() {
+        $mediaController = new MediaResourceController();
+        return $mediaController->getTotalMediaResources();
+    }
+
+    public function getTotalPeriodicals() {
+        $periodicalController = new PeriodicalController();
+        return $periodicalController->getTotalPeriodicals();
+    }
+
+    public function getMonthlyBorrowings() {
+        $query = "SELECT 
+                    MONTH(borrow_date) as month,
+                    COUNT(*) as count
+                  FROM borrowings
+                  WHERE YEAR(borrow_date) = YEAR(CURRENT_DATE)
+                  GROUP BY MONTH(borrow_date)
+                  ORDER BY month";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+        
+        // Initialize all months with 0
+        $monthlyData = array_fill(1, 12, 0);
+        
+        // Fill in actual data
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $monthlyData[$row['month']] = $row['count'];
+        }
+        
+        return $monthlyData;
+    }
 }

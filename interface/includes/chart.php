@@ -1,5 +1,5 @@
     <!-- Category Distribution Chart (Hidden for Non-Admin) -->
-    <?php if ($_SESSION['role'] === 'admin'): ?>
+    <!-- <?php if ($_SESSION['role'] === 'admin'): ?>
             <div class="row mt-4">
                 <div class="col-md-6">
                     <div class="card">
@@ -11,4 +11,4 @@
                 </div>
             </div>
             <?php endif; ?>
-        </div>
+        </div> -->

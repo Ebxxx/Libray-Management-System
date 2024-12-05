@@ -374,4 +374,20 @@ class BorrowingController {
             return [];
         }
     }
+
+    public function getMonthlyBorrowings($year) {
+        try {
+            $query = "SELECT MONTH(borrow_date) as month, COUNT(*) as borrow_count
+                      FROM borrowings
+                      WHERE YEAR(borrow_date) = :year
+                      GROUP BY MONTH(borrow_date)";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":year", $year, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get monthly borrowings error: " . $e->getMessage());
+            return [];
+        }
+    }
 }

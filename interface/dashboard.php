@@ -1,6 +1,9 @@
 <?php
 require_once '../config/Database.php';
 require_once '../controller/ResourceController.php';
+require_once '../controller/BookController.php';
+require_once '../controller/MediaResourceController.php';
+require_once '../controller/PeriodicalController.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -12,6 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 $resourceController = new ResourceController();
 $bookStats = $resourceController->getBookStatistics();
 $categoryDistribution = $resourceController->getBookCategoriesDistribution();
+$monthlyBorrowings = $resourceController->getMonthlyBorrowings();
 ?>
 
 <!DOCTYPE html>
@@ -66,8 +70,8 @@ $categoryDistribution = $resourceController->getBookCategoriesDistribution();
                             <h2 class="mb-0"><?php echo $bookStats['borrowed_books']; ?></h2>
                         </div>
                     </div>
-                    <?php endif; ?>
                 </div>
+                <?php endif; ?>
                 <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
                 <div class="col-md-3">
                     <div class="card bg-danger text-white">
@@ -79,50 +83,111 @@ $categoryDistribution = $resourceController->getBookCategoriesDistribution();
                 </div>
                 <?php endif; ?>
             </div>
-            <!-- chart section here -->
-            <?php include 'includes/chart.php'; ?>
+            <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+            <!-- Add chart section -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <canvas id="monthlyBorrowingsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <canvas id="resourceDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        <?php if ($_SESSION['role'] === 'admin'): ?>
-        var ctx = document.getElementById('bookCategoryChart').getContext('2d');
-        var categoryData = <?php echo json_encode($categoryDistribution); ?>;
+        var ctx = document.getElementById('resourceDistributionChart').getContext('2d');
+        var resourceData = {
+            labels: ['Books', 'Media Resources', 'Periodicals'],
+            datasets: [{
+                data: [
+                    <?php echo $resourceController->getTotalBooks(); ?>,
+                    <?php echo $resourceController->getTotalMediaResources(); ?>,
+                    <?php echo $resourceController->getTotalPeriodicals(); ?>
+                ],
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 206, 86, 0.8)'
+                ]
+            }]
+        };
         
-        var labels = categoryData.map(item => item.category);
-        var counts = categoryData.map(item => item.count);
-        
-        var chart = new Chart(ctx, {
+        new Chart(ctx, {
             type: 'pie',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: counts,
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 206, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(153, 102, 255, 0.8)'
-                    ]
-                }]
-            },
+            data: resourceData,
             options: {
                 responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
                 plugins: {
                     legend: {
                         position: 'top',
                     },
                     title: {
                         display: true,
-                        text: 'Book Categories Distribution'
+                        text: 'Resource Type Distribution'
                     }
                 }
             }
         });
-        <?php endif; ?>
+    });
+
+    // Monthly Borrowings Chart
+    var monthlyCtx = document.getElementById('monthlyBorrowingsChart').getContext('2d');
+    var monthlyData = {
+        labels: ['January', 'February', 'March', 'April', 'May', 'June', 
+                'July', 'August', 'September', 'October', 'November', 'December'],
+        datasets: [{
+            label: 'Number of Borrowings',
+            data: [
+                <?php echo implode(',', $monthlyBorrowings); ?>
+            ],
+            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+        }]
+    };
+    
+    new Chart(monthlyCtx, {
+        type: 'bar',
+        data: monthlyData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.5,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },  
+                title: {
+                    display: true,
+                    text: 'Monthly Borrowings This Year'
+                }
+            }
+        }
     });
     </script>
 </body>
