@@ -228,10 +228,6 @@ $error_message = Session::getFlash('error');
                                 <option value="Reference">Reference</option>
                             </select>
                         </div>
-                        <!-- <div class="mb-3">
-                            <label for="accession_number" class="form-label">Accession Number</label>
-                            <input type="text" class="form-control" id="accession_number" name="accession_number" placeholder="Leave blank for auto-generation" readonly>
-                        </div> -->
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

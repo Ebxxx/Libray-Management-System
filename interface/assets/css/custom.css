@@ -62,3 +62,18 @@ body {
         font-size: 12px;
     }
 }
+
+.borrowing-monitoring-container {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 30px;
+    margin-top: 30px;
+}
+.page-header {
+    background-color: #003161;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
