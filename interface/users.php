@@ -21,15 +21,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Delete
     if (isset($_POST['delete_user'])) {
         $userId = filter_input(INPUT_POST, 'user_id', FILTER_SANITIZE_NUMBER_INT);
-        if ($userController->deleteUser($userId)) {
-            Session::setFlash('success', 'User deleted successfully');
-            header("Location: users.php");
-            exit();
-        } else {
-            Session::setFlash('error', 'Error deleting user');
+        
+        // Prevent deleting own account
+        if ($userId == $_SESSION['user_id']) {
+            Session::setFlash('error', 'You cannot delete your own account');
             header("Location: users.php");
             exit();
         }
+        
+        if ($userController->deleteUser($userId)) {
+            Session::setFlash('success', 'User deleted successfully');
+        } else {
+            Session::setFlash('error', 'Error deleting user. The user might be the last admin or have associated records.');
+        }
+        header("Location: users.php");
+        exit();
     }
     // Handle Create/Update
     else {
@@ -161,14 +167,14 @@ $error_message = Session::getFlash('error');
                                                 data-user='<?php echo htmlspecialchars(json_encode($user)); ?>'>
                                             <i class="bi bi-pencil"></i> Edit
                                         </button>
-                                        <?php if ($user['role'] !== 'admin' || count($users) > 1): ?>
-                                        <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?');">
-                                            <input type="hidden" name="user_id" value="<?php echo $user['user_id']; ?>">
-                                            <input type="hidden" name="delete_user" value="1">
-                                            <button type="submit" class="btn btn-sm btn-danger">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </button>
-                                        </form>
+                                        <?php if ($user['user_id'] != $_SESSION['user_id'] && ($user['role'] !== 'admin' || count($users) > 1)): ?>
+                                            <form method="POST" class="d-inline delete-user-form">
+                                                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
+                                                <input type="hidden" name="delete_user" value="1">
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </button>
+                                            </form>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

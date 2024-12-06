@@ -35,6 +35,7 @@ if (!isset($_SESSION['user_id'])) {
                 </li>
                 <?php endif; ?>
 
+
                  <?php
                     // Ensure the user is logged in and check their role
                     if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
@@ -127,6 +128,15 @@ if (!isset($_SESSION['user_id'])) {
                             <span>Report</span>
                         </a>
                     </li>
+                <?php endif; ?>
+
+                <?php if ($_SESSION['role'] === 'admin'): ?>
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="activity-logs.php">
+                        <i class="bi bi-activity"></i>
+                        <span>Activity Logs</span>
+                    </a>
+                </li>
                 <?php endif; ?>
                     
                 <li class="nav-item mt-4">

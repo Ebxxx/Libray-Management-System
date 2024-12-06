@@ -1,6 +1,7 @@
 <?php
 require_once '../config/Database.php';
 require_once 'Session.php';
+require_once 'ActivityLogController.php';
 
 class UserController {
     private $conn;
@@ -28,6 +29,15 @@ class UserController {
                     $_SESSION['username'] = $row['username'];
                     $_SESSION['role'] = $row['role'];
                     $_SESSION['full_name'] = $row['first_name'] . ' ' . $row['last_name'];
+                    
+                    // Log the login activity
+                    $activityLogger = new ActivityLogController();
+                    $activityLogger->logActivity(
+                        $row['user_id'],
+                        'login',
+                        'User logged in successfully'
+                    );
+                    
                     return true;
                 }
             }
@@ -163,7 +173,18 @@ class UserController {
                 $stmt->bindParam(":password", $data['password']); // Password should already be hashed
             }
             
-            return $stmt->execute();
+            if ($stmt->execute()) {
+                // Log the update activity
+                $activityLogger = new ActivityLogController();
+                $activityLogger->logUserUpdate(
+                    $_SESSION['user_id'],
+                    $userId,
+                    'account details updated'
+                );
+                
+                return true;
+            }
+            return false;
         } catch(PDOException $e) {
             error_log("Update user error: " . $e->getMessage());
             return false;
@@ -172,17 +193,21 @@ class UserController {
 
     public function deleteUser($userId) {
         try {
-            // Check if user exists and get their role
-            $stmt = $this->conn->prepare("SELECT role FROM users WHERE user_id = :user_id");
+            // Start transaction
+            $this->conn->beginTransaction();
+
+            // Store username before deletion for logging
+            $stmt = $this->conn->prepare("SELECT username, role FROM users WHERE user_id = :user_id");
             $stmt->bindParam(":user_id", $userId);
             $stmt->execute();
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$user) {
                 error_log("User not found for deletion: " . $userId);
+                $this->conn->rollBack();
                 return false;
             }
-    
+
             // Only check for last admin if the user being deleted is an admin
             if ($user['role'] === 'admin') {
                 $stmt = $this->conn->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role = 'admin'");
@@ -191,17 +216,31 @@ class UserController {
                 
                 if ($result['admin_count'] <= 1) {
                     error_log("Cannot delete last admin user");
+                    $this->conn->rollBack();
                     return false;
                 }
             }
-    
+
+            // Update activity logs to set user_id to NULL
+            $stmt = $this->conn->prepare("UPDATE activity_logs SET user_id = NULL WHERE user_id = :user_id");
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->execute();
+
             // Delete the user
             $stmt = $this->conn->prepare("DELETE FROM users WHERE user_id = :user_id");
             $stmt->bindParam(":user_id", $userId);
-            return $stmt->execute();
+            
+            if ($stmt->execute()) {
+                $this->conn->commit();
+                return true;
+            }
+
+            $this->conn->rollBack();
+            return false;
             
         } catch(PDOException $e) {
             error_log("Delete user error: " . $e->getMessage());
+            $this->conn->rollBack();
             return false;
         }
     }
