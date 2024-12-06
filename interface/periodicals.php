@@ -81,143 +81,154 @@ $error_message = Session::getFlash('error');
     <title>Periodicals Management - Library Management System</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        .borrowing-monitoring-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .page-header {
+            background-color: #003161;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="d-flex">
         <?php include 'includes/sidebarModal.php'; ?>
         
-        <div class="main-content flex-grow-1 p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2>Periodicals Management</h2>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#periodicalModal">
-                    <i class="bi bi-plus-lg"></i> Add New
-                </button>
-            </div>
+        <!-- Main Content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="borrowing-monitoring-container">
+                <?php if ($success_message): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($success_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
 
-            <?php if ($success_message): ?>
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($success_message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($error_message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Accession Number</th>
-                                    <th>Title</th>
-                                    <th>ISSN</th>
-                                    <th>Volume</th>
-                                    <th>Issue</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($periodicals as $periodical): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($periodical['accession_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($periodical['title']); ?></td>
-                                    <td><?php echo htmlspecialchars($periodical['issn']); ?></td>
-                                    <td><?php echo htmlspecialchars($periodical['volume']); ?></td>
-                                    <td><?php echo htmlspecialchars($periodical['issue']); ?></td>
-                                    <td><?php echo htmlspecialchars($periodical['category']); ?></td>
-                                    <td>
-                                        <span class="badge 
-                                        <?php 
-                                        echo $periodical['status'] === 'available' ? 'bg-success' : 'bg-warning'; 
-                                        ?>">
-                                            <?php echo ucfirst(htmlspecialchars($periodical['status'])); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-warning edit-periodical" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#periodicalModal"
-                                                data-periodical='<?php echo htmlspecialchars(json_encode($periodical)); ?>'>
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </button>
-                                        <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this media resource?');">
-                                        <input type="hidden" name="resource_id" value="<?php echo $periodical['resource_id']; ?>">
-                                        <input type="hidden" name="delete_periodical" value="1">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i> Delete
-                                        </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                <div class="page-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">
+                        <i></i>Periodicals Management
+                    </h2>
+                    <div class="d-flex align-items-center">
+                        <div class="box p-3 border rounded me-3">
+                            <span>Total Periodicals: <?php echo count($periodicals); ?></span>
+                        </div>
+                        <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#periodicalModal">
+                            <i class="bi bi-plus-lg"></i> Add New
+                        </button>
                     </div>
                 </div>
-            </div>
 
-            <div class="modal fade" id="periodicalModal" tabindex="-1" aria-labelledby="periodicalModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="periodicalModalLabel">Add/Edit Periodical</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Accession Number</th>
+                                <th>Title</th>
+                                <th>ISSN</th>
+                                <th>Volume</th>
+                                <th>Issue</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($periodicals as $periodical): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($periodical['accession_number']); ?></td>
+                                <td><?php echo htmlspecialchars($periodical['title']); ?></td>
+                                <td><?php echo htmlspecialchars($periodical['issn']); ?></td>
+                                <td><?php echo htmlspecialchars($periodical['volume']); ?></td>
+                                <td><?php echo htmlspecialchars($periodical['issue']); ?></td>
+                                <td><?php echo htmlspecialchars($periodical['category']); ?></td>
+                                <td>
+                                    <span class="badge 
+                                    <?php 
+                                    echo $periodical['status'] === 'available' ? 'bg-success' : 'bg-warning'; 
+                                    ?>">
+                                        <?php echo ucfirst(htmlspecialchars($periodical['status'])); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning edit-periodical" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#periodicalModal"
+                                            data-periodical='<?php echo htmlspecialchars(json_encode($periodical)); ?>'>
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this media resource?');">
+                                    <input type="hidden" name="resource_id" value="<?php echo $periodical['resource_id']; ?>">
+                                    <input type="hidden" name="delete_periodical" value="1">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal fade" id="periodicalModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Periodical Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="resource_id" id="resourceId">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
                         </div>
-                        <div class="modal-body">
-                            <form id="periodicalForm" method="POST">
-                                <input type="hidden" name="resource_id" id="resourceId">
-                                <div class="mb-3">
-                                    <label for="title" class="form-label">Title</label>
-                                    <input type="text" class="form-control" id="title" name="title" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="issn" class="form-label">ISSN</label>
-                                    <input type="text" class="form-control" id="issn" name="issn" required>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="volume" class="form-label">Volume</label>
-                                        <input type="text" class="form-control" id="volume" name="volume">
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="issue" class="form-label">Issue</label>
-                                        <input type="text" class="form-control" id="issue" name="issue">
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="publication_date" class="form-label">Publication Date</label>
-                                    <input type="date" class="form-control" id="publication_date" name="publication_date">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="category" class="form-label">Category</label>
-                                    <select class="form-select" id="category" name="category" required>
-                                        <option value="">Select Category</option>
-                                        <option value="Academic Journal">Academic Journal</option>
-                                        <option value="Magazine">Magazine</option>
-                                        <option value="Newsletter">Newsletter</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <!-- <div class="mb-3">
-                                    <label for="accession_number" class="form-label">Accession Number</label>
-                                    <input type="text" class="form-control" id="accession_number" name="accession_number" readonly>
-                                </div> -->
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                    <button type="submit" class="btn btn-primary">Save Periodical</button>
-                                </div>
-                            </form>
+                        <div class="mb-3">
+                            <label for="issn" class="form-label">ISSN</label>
+                            <input type="text" class="form-control" id="issn" name="issn" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="volume" class="form-label">Volume</label>
+                                <input type="text" class="form-control" id="volume" name="volume">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="issue" class="form-label">Issue</label>
+                                <input type="text" class="form-control" id="issue" name="issue">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="publication_date" class="form-label">Publication Date</label>
+                            <input type="date" class="form-control" id="publication_date" name="publication_date">
+                        </div>
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="">Select Category</option>
+                                <option value="Academic Journal">Academic Journal</option>
+                                <option value="Magazine">Magazine</option>
+                                <option value="Newsletter">Newsletter</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Save Periodical</button>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     </div>

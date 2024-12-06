@@ -59,9 +59,25 @@ if (!empty($searchTerm)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Borrow Resources</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/custom.css" rel="stylesheet">
+    <style>
+        .borrowing-monitoring-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .page-header {
+            background-color: #003161;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="d-flex">
@@ -69,108 +85,99 @@ if (!empty($searchTerm)) {
         <?php include 'includes/sidebarModal.php'; ?>
         
         <!-- Main Content Area -->
-        <main class="flex-grow-1 bg-light">
-            <div class="container-fluid p-4">
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card shadow-sm">
-                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                                <h2 class="mb-0">Available Resources</h2>
-                                
-                                <!-- Resource Type and Search Dropdown -->
-                                <div class="d-flex align-items-center">
-                                    <form method="GET" class="d-flex" id="resourceForm">
-                                        <select name="type" class="form-select me-2" style="width: 150px;" onchange="this.form.submit()">
-                                            <option value="books" <?php echo $resourceType == 'books' ? 'selected' : ''; ?>>Books</option>
-                                            <option value="media" <?php echo $resourceType == 'media' ? 'selected' : ''; ?>>Media</option>
-                                            <option value="periodicals" <?php echo $resourceType == 'periodicals' ? 'selected' : ''; ?>>Periodicals</option>
-                                        </select>
-                                        
-                                        <input type="text" name="search" class="form-control me-2" placeholder="Search..." 
-                                               value="<?php echo htmlspecialchars($searchTerm); ?>"
-                                               style="width: 200px;">
-                                        
-                                        <button type="submit" class="btn btn-light">
-                                            <i class="bi bi-search"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="borrowing-monitoring-container">
+                <div class="page-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">Available Resources</h2>
+                    <div class="d-flex align-items-center">
+                        <form method="GET" class="d-flex" id="resourceForm">
+                            <select name="type" class="form-select me-2" style="width: 150px;" onchange="this.form.submit()">
+                                <option value="books" <?php echo $resourceType == 'books' ? 'selected' : ''; ?>>Books</option>
+                                <option value="media" <?php echo $resourceType == 'media' ? 'selected' : ''; ?>>Media</option>
+                                <option value="periodicals" <?php echo $resourceType == 'periodicals' ? 'selected' : ''; ?>>Periodicals</option>
+                            </select>
                             
-                            <div class="card-body">
-                                <?php if (isset($message)): ?>
-                                    <div class="alert <?php echo $result ? 'alert-success' : 'alert-danger'; ?>">
-                                        <?php echo $message; ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <!-- Resources Table -->
-                                <div class="table-responsive">
-                                    <table class="table table-striped table-hover">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <?php 
-                                                $headerMap = [
-                                                    'books' => ['Title', 'Category', 'Author', 'ISBN', 'Publisher', 'Accession Number'],
-                                                    'media' => ['Title', 'Category', 'Accession Number', 'Media Type', 'Runtime', 'Format'],
-                                                    'periodicals' => ['Title', 'Category', 'Accession Number', 'ISSN', 'Publication Date', 'Volume', 'Issue']
-                                                ];
-                                                foreach ($headerMap[$resourceType] as $header): ?>
-                                                    <th><?php echo $header; ?></th>
-                                                <?php endforeach; ?>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($availableResources as $resource): ?>
-                                            <tr>
-                                                <?php 
-                                                $displayMap = [
-                                                    'books' => [
-                                                        'title', 'category', 'author', 'isbn', 'publisher', 'accession_number'
-                                                    ],
-                                                    'media' => [
-                                                        'title', 'category', 'accession_number', 'media_type', 'runtime', 'format'
-                                                    ],
-                                                    'periodicals' => [
-                                                        'title', 'category', 'accession_number', 'publisher', 
-                                                        'publication_date', 'volume', 'issue'
-                                                    ]
-                                                ];
-                                                
-                                                foreach ($displayMap[$resourceType] as $field): 
-                                                    $displayValue = $field === 'publisher' && $resourceType === 'periodicals' 
-                                                        ? $resource['publisher'] 
-                                                        : ($resource[$field] ?? 'N/A');
-                                                ?>
-                                                    <td><?php echo htmlspecialchars($displayValue); ?></td>
-                                                <?php endforeach; ?>
-                                                <td>
-                                                    <form method="POST">
-                                                        <input type="hidden" name="resource_id" value="<?php echo $resource['resource_id']; ?>">
-                                                        <button type="submit" class="btn btn-primary btn-sm">Borrow</button>
-                                                    </form>
-                                                </td>
-                                            </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-
-                                    <?php if (empty($availableResources)): ?>
-                                        <div class="alert alert-info text-center">
-                                            No resources available in this category.
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
+                            <input type="text" name="search" class="form-control me-2" placeholder="Search..." 
+                                   value="<?php echo htmlspecialchars($searchTerm); ?>"
+                                   style="width: 200px;">
+                            
+                            <button type="submit" class="btn btn-light">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </form>
                     </div>
+                </div>
+                
+                <?php if (isset($message)): ?>
+                    <div class="alert <?php echo $result ? 'alert-success' : 'alert-danger'; ?>">
+                        <?php echo $message; ?>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Resources Table -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <?php 
+                                $headerMap = [
+                                    'books' => ['Title', 'Category', 'Author', 'ISBN', 'Publisher', 'Accession Number'],
+                                    'media' => ['Title', 'Category', 'Accession Number', 'Media Type', 'Runtime', 'Format'],
+                                    'periodicals' => ['Title', 'Category', 'Accession Number', 'ISSN', 'Publication Date', 'Volume', 'Issue']
+                                ];
+                                foreach ($headerMap[$resourceType] as $header): ?>
+                                    <th><?php echo $header; ?></th>
+                                <?php endforeach; ?>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($availableResources as $resource): ?>
+                            <tr>
+                                <?php 
+                                $displayMap = [
+                                    'books' => [
+                                        'title', 'category', 'author', 'isbn', 'publisher', 'accession_number'
+                                    ],
+                                    'media' => [
+                                        'title', 'category', 'accession_number', 'media_type', 'runtime', 'format'
+                                    ],
+                                    'periodicals' => [
+                                        'title', 'category', 'accession_number', 'publisher', 
+                                        'publication_date', 'volume', 'issue'
+                                    ]
+                                ];
+                                
+                                foreach ($displayMap[$resourceType] as $field): 
+                                    $displayValue = $field === 'publisher' && $resourceType === 'periodicals' 
+                                        ? $resource['publisher'] 
+                                        : ($resource[$field] ?? 'N/A');
+                                ?>
+                                    <td><?php echo htmlspecialchars($displayValue); ?></td>
+                                <?php endforeach; ?>
+                                <td>
+                                    <form method="POST">
+                                        <input type="hidden" name="resource_id" value="<?php echo $resource['resource_id']; ?>">
+                                        <button type="submit" class="btn btn-primary btn-sm">Borrow</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <?php if (empty($availableResources)): ?>
+                        <div class="alert alert-info text-center">
+                            No resources available in this category.
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </main>
     </div>
 
     <!-- Bootstrap JS and dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
 </body>
 </html>

@@ -86,7 +86,7 @@ $borrowings = $borrowingController->getAllBorrowings();
 
                 <div class="page-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0">
-                        <i class="bi bi-book-half me-2"></i>Borrowing Monitoring
+                        <i></i>Borrowing Monitoring
                     </h2>
                     <div class="box p-3 border rounded">
                     <span class="me-2">Total Borrowings: <?php echo count($borrowings); ?></span>

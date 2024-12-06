@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 $resourceController = new ResourceController();
 $bookStats = $resourceController->getBookStatistics();
 $categoryDistribution = $resourceController->getBookCategoriesDistribution();
-$monthlyBorrowings = $resourceController->getMonthlyBorrowings();
+$monthlyBorrowings = $resourceController->getMonthlyBorrowings(date('Y'));
 ?>
 
 <!DOCTYPE html>
@@ -89,6 +89,16 @@ $monthlyBorrowings = $resourceController->getMonthlyBorrowings();
                 <div class="col-md-6">
                     <div class="card">
                         <div class="card-body">
+                            <div class="d-flex justify-content-start mb-1">
+                                <select id="yearSelector" class="form-select" style="width: auto;">
+                                    <?php
+                                    $currentYear = date('Y');
+                                    for($year = $currentYear; $year >= $currentYear - 4; $year--) {
+                                        echo "<option value='$year'>$year</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
                             <canvas id="monthlyBorrowingsChart"></canvas>
                         </div>
                     </div>
@@ -147,47 +157,66 @@ $monthlyBorrowings = $resourceController->getMonthlyBorrowings();
     });
 
     // Monthly Borrowings Chart
-    var monthlyCtx = document.getElementById('monthlyBorrowingsChart').getContext('2d');
-    var monthlyData = {
-        labels: ['January', 'February', 'March', 'April', 'May', 'June', 
-                'July', 'August', 'September', 'October', 'November', 'December'],
-        datasets: [{
-            label: 'Number of Borrowings',
-            data: [
-                <?php echo implode(',', $monthlyBorrowings); ?>
-            ],
-            backgroundColor: 'rgba(75, 192, 192, 0.8)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1
-        }]
-    };
-    
-    new Chart(monthlyCtx, {
-        type: 'bar',
-        data: monthlyData,
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: 1.5,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
+    let monthlyBorrowingsChart; // Declare chart variable globally
+
+    function initializeMonthlyChart(data) {
+        var monthlyCtx = document.getElementById('monthlyBorrowingsChart').getContext('2d');
+        var monthlyData = {
+            labels: ['January', 'February', 'March', 'April', 'May', 'June', 
+                    'July', 'August', 'September', 'October', 'November', 'December'],
+            datasets: [{
+                label: 'Number of Borrowings',
+                data: data,
+                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        };
+        
+        if (monthlyBorrowingsChart) {
+            monthlyBorrowingsChart.destroy();
+        }
+        
+        monthlyBorrowingsChart = new Chart(monthlyCtx, {
+            type: 'bar',
+            data: monthlyData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },  
+                    title: {
+                        display: true,
+                        text: 'Monthly Borrowings for ' + document.getElementById('yearSelector').value
                     }
                 }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                },  
-                title: {
-                    display: true,
-                    text: 'Monthly Borrowings This Year'
-                }
             }
-        }
+        });
+    }
+
+    // Initialize chart with current year's data
+    initializeMonthlyChart([<?php echo implode(',', $monthlyBorrowings); ?>]);
+
+    // Add event listener for year selection
+    document.getElementById('yearSelector').addEventListener('change', function() {
+        fetch(`../controller/get_monthly_borrowings.php?year=${this.value}`)
+            .then(response => response.json())
+            .then(data => {
+                initializeMonthlyChart(data);
+            })
+            .catch(error => console.error('Error:', error));
     });
     </script>
 </body>

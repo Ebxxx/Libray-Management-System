@@ -245,24 +245,24 @@ class ResourceController {
         return $periodicalController->getTotalPeriodicals();
     }
 
-    public function getMonthlyBorrowings() {
-        $query = "SELECT 
-                    MONTH(borrow_date) as month,
-                    COUNT(*) as count
-                  FROM borrowings
-                  WHERE YEAR(borrow_date) = YEAR(CURRENT_DATE)
-                  GROUP BY MONTH(borrow_date)
-                  ORDER BY month";
+    
+
+    public function getMonthlyBorrowings($year) {
+        $query = "SELECT MONTH(borrow_date) as month, COUNT(*) as count 
+                  FROM borrowings 
+                  WHERE YEAR(borrow_date) = :year 
+                  GROUP BY MONTH(borrow_date)";
         
         $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':year', $year);
         $stmt->execute();
         
-        // Initialize all months with 0
-        $monthlyData = array_fill(1, 12, 0);
+        // Initialize array with zeros for all months
+        $monthlyData = array_fill(0, 12, 0);
         
         // Fill in actual data
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $monthlyData[$row['month']] = $row['count'];
+            $monthlyData[$row['month'] - 1] = (int)$row['count'];
         }
         
         return $monthlyData;

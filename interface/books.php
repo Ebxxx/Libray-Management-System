@@ -80,86 +80,106 @@ $error_message = Session::getFlash('error');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Management - Library Management System</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="assets/css/style.css" rel="stylesheet">
+    <style>
+        .borrowing-monitoring-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .page-header {
+            background-color: #003161;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="d-flex">
         <?php include 'includes/sidebarModal.php'; ?>
         
-        <div class="main-content flex-grow-1 p-3">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2>Book Management</h2>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bookModal">
-                    <i class="bi bi-plus-lg"></i> Add New
-                </button>
-            </div>
-
-            <?php if ($success_message): ?>
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($success_message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($error_message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Accession Number</th>
-                                    <th>Title</th>
-                                    <th>Author</th>
-                                    <th>ISBN</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($books as $book): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($book['accession_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($book['title']); ?></td>
-                                    <td><?php echo htmlspecialchars($book['author']); ?></td>
-                                    <td><?php echo htmlspecialchars($book['isbn']); ?></td>
-                                    <td><?php echo htmlspecialchars($book['category']); ?></td>
-                                    <td>
-                                        <span class="badge 
-                                        <?php 
-                                        echo $book['status'] === 'available' ? 'bg-success' : 'bg-warning'; 
-                                        ?>">
-                                            <?php echo ucfirst(htmlspecialchars($book['status'])); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-warning edit-book" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#bookModal"
-                                                data-book='<?php echo htmlspecialchars(json_encode($book)); ?>'>
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </button>
-                                        <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this book?');">
-                                            <input type="hidden" name="resource_id" value="<?php echo $book['resource_id']; ?>">
-                                            <input type="hidden" name="delete_book" value="1">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i> Delete
-                                        </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="borrowing-monitoring-container">
+                <?php if ($success_message): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($success_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
+                <?php endif; ?>
+
+                <?php if ($error_message): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($error_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <div class="page-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">Book Management</h2>
+                    <div class="d-flex align-items-center">
+                        <div class="box p-3 border rounded me-3">
+                            <span>Total Books: <?php echo count($books); ?></span>
+                        </div>
+                        <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#bookModal">
+                            <i class="bi bi-plus-lg"></i> Add New
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Accession Number</th>
+                                <th>Title</th>
+                                <th>Author</th>
+                                <th>ISBN</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($books as $book): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($book['accession_number']); ?></td>
+                                <td><?php echo htmlspecialchars($book['title']); ?></td>
+                                <td><?php echo htmlspecialchars($book['author']); ?></td>
+                                <td><?php echo htmlspecialchars($book['isbn']); ?></td>
+                                <td><?php echo htmlspecialchars($book['category']); ?></td>
+                                <td>
+                                    <span class="badge 
+                                    <?php 
+                                    echo $book['status'] === 'available' ? 'bg-success' : 'bg-warning'; 
+                                    ?>">
+                                        <?php echo ucfirst(htmlspecialchars($book['status'])); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning edit-book" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#bookModal"
+                                            data-book='<?php echo htmlspecialchars(json_encode($book)); ?>'>
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this book?');">
+                                        <input type="hidden" name="resource_id" value="<?php echo $book['resource_id']; ?>">
+                                        <input type="hidden" name="delete_book" value="1">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -233,7 +253,7 @@ $error_message = Session::getFlash('error');
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
