@@ -34,12 +34,23 @@ $monthlyBorrowings = $resourceController->getMonthlyBorrowings(date('Y'));
 
         <div class="main-content flex-grow-1">
             <!-- Header Section -->
-            <div class="d-flex justify-content-between align-items-center py-3 px-4 ">
-                <h2 class="mb-0">Dashboard</h2>
+            <div class="d-flex justify-content-between align-items-center py-3 px-4">
+            <h2 class="fw-bold">Welcome, <small class="fw-normal" style="font-size: 0.8em;"><?php echo htmlspecialchars($_SESSION['username']); ?></small></h2>
                 <!-- User Profile Section -->
-                <div>
-                    <div class="fw-bold"><?php echo htmlspecialchars($_SESSION['full_name']); ?></div>
-                    <span class="badge bg-primary"><?php echo ucfirst($_SESSION['role']); ?></span>
+                <div class="dropdown">
+                    <div class="d-flex align-items-center gap-2 dropdown-toggle" 
+                         role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                       
+                        <div>
+                            <div class="fw-bold"><?php echo htmlspecialchars($_SESSION['full_name']); ?></div>
+                            <span class="badge text-primary"><?php echo ucfirst($_SESSION['role']); ?></span>
+                        </div>
+                    </div>
+                    <ul class="dropdown-menu dropdown-menu-end" style="background-color: rgb(184, 207, 202);">
+                        <li class="fas fa-people">
+                            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#accountSettingsModal">Account Settings</a>
+                        </li>
+                    </ul>
                 </div>
             </div>
             <hr>
@@ -99,5 +110,71 @@ $monthlyBorrowings = $resourceController->getMonthlyBorrowings(date('Y'));
         const initialMonthlyData = [<?php echo implode(',', $monthlyBorrowings); ?>];
     </script>
     <script src="assets/js/dashboard-charts.js"></script>
+
+    <!-- Account Settings Modal -->
+    <div class="modal fade" id="accountSettingsModal" tabindex="-1" aria-labelledby="accountSettingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="accountSettingsModalLabel">Account Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="accountSettingsForm">
+                        <div class="mb-3">
+                            <label for="newUsername" class="form-label">New Username</label>
+                            <input type="text" class="form-control" id="newUsername" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" name="password">
+                            <small class="text-muted">Leave blank if you don't want to change the password</small>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('accountSettingsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            username: document.getElementById('newUsername').value,
+            password: document.getElementById('newPassword').value,
+            // Preserve existing user data
+            first_name: '<?php echo $_SESSION['first_name'] ?? ''; ?>',
+            last_name: '<?php echo $_SESSION['last_name'] ?? ''; ?>',
+            email: '<?php echo $_SESSION['email'] ?? ''; ?>',
+            role: '<?php echo $_SESSION['role'] ?? ''; ?>',
+            max_books: '<?php echo $_SESSION['max_books'] ?? 0; ?>'
+        };
+
+        fetch('../api/update_account.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Account updated successfully!');
+                location.reload();
+            } else {
+                alert('Error updating account: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating the account');
+        });
+    });
+    </script>
 </body>
 </html>

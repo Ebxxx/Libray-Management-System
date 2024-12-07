@@ -32,75 +32,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </style>
 </head>
-<body class="bg-sky-200 min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-md">
-        <div class="bg-white shadow-2xl rounded-xl overflow-hidden transform transition-all duration-300 hover:scale-[1.02]">
-            <div class="p-8">
-                <div class="flex justify-center mb-6">
-                    <i class="ri-book-2-line text-5xl text-sky-600"></i>
-                </div>
-                <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">
-                    Library Management
-                </h2>
+<body class="bg-white min-h-screen flex items-center justify-center">
+    <div class="w-full min-h-screen flex">
+        <!-- Left side with illustration -->
+        <div class="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 overflow-hidden" 
+             style="background-image: url('../uploads/images/7a731ad3cc969be40ba7ae6417c7aa85.jpg'); 
+                    background-size: cover; 
+                    background-position: center;
+                    background-repeat: no-repeat;">
+            <!-- Add blur effect with overlay -->
+            <div class="absolute inset-0 backdrop-blur-[3px] bg-blue-900/40"></div>
+            
+            <div class="text-center relative z-10">
+                <h1 class="text-3xl font-bold text-white mb-4">Welcome to Library Management System</h1>
+                <p class="text-gray-100">Borrow and manage your books with ease.</p>
+                <!-- Add dots/indicators -->
+                <!-- <div class="flex justify-center mt-6 space-x-2">
+                    <div class="w-2 h-2 rounded-full bg-white"></div>
+                    <div class="w-2 h-2 rounded-full bg-white/50"></div>
+                    <div class="w-2 h-2 rounded-full bg-white/50"></div>
+                </div> -->
+            </div>
+        </div>
+
+        <!-- Right side with login form -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
+            <div class="w-full max-w-md">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Login</h2>
+                <p class="text-gray-500 mb-8">Acces your account</p>
 
                 <?php if (isset($error_message)): ?>
-                    <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4 flex items-center">
-                        <i class="ri-error-warning-line mr-3 text-xl"></i>
+                    <div class="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
                         <span><?php echo htmlspecialchars($error_message); ?></span>
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" action="" class="space-y-4">
+                <form method="POST" action="" class="space-y-6">
                     <div>
                         <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
-                            Username
+                           Username
                         </label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center">
-                                <i class="ri-user-line text-gray-400"></i>
-                            </span>
-                            <input 
-                                type="text" 
-                                id="username" 
-                                name="username" 
-                                required 
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition duration-300"
-                                placeholder="Enter your username"
-                            >
-                        </div>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            required 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="Enter Email or Username"
+                        >
                     </div>
 
                     <div>
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
                             Password
                         </label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center">
-                                <i class="ri-lock-line text-gray-400"></i>
-                            </span>
-                            <input 
-                                type="password" 
-                                id="password" 
-                                name="password" 
-                                required 
-                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 transition duration-300"
-                                placeholder="Enter your password"
-                            >
-                        </div>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            required 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="Enter Password"
+                        >
                     </div>
+
+                    <!-- <div class="flex items-center justify-between">
+                        <label class="flex items-center">
+                            <input type="checkbox" class="form-checkbox text-purple-600">
+                            <span class="ml-2 text-sm text-gray-600">Remember Me</span>
+                        </label>
+                        <a href="#" class="text-sm text-purple-600 hover:text-purple-700">Forgot Password?</a>
+                    </div> -->
 
                     <button 
                         type="submit" 
-                        class="w-full bg-sky-600 text-white py-2 rounded-lg hover:bg-sky-700 transition duration-300 ease-in-out transform hover:scale-[1.02] flex items-center justify-center"
+                        class="w-full bg-blue-900 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-300"
                     >
-                        <i class="ri-login-box-line mr-2"></i>
                         Login
                     </button>
                 </form>
             </div>
-        </div>
-        <div class="text-center mt-4 text-sm text-gray-600">
-            © <?php echo date('Y'); ?> Library Management System
         </div>
     </div>
 </body>

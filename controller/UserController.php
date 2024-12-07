@@ -268,4 +268,66 @@ class UserController {
             ];
         }
     }
+
+    public function updateCredentials($userId, $data) {
+        try {
+            // Check if username already exists for other users
+            if (isset($data['username'])) {
+                $stmt = $this->conn->prepare("SELECT username FROM users WHERE username = :username AND user_id != :user_id");
+                $stmt->bindParam(":username", $data['username']);
+                $stmt->bindParam(":user_id", $userId);
+                $stmt->execute();
+                
+                if ($stmt->rowCount() > 0) {
+                    error_log("Username already exists: " . $data['username']);
+                    return false;
+                }
+            }
+
+            // Start building the update query
+            $query = "UPDATE users SET ";
+            $updateParts = [];
+            
+            if (isset($data['username'])) {
+                $updateParts[] = "username = :username";
+            }
+            if (!empty($data['password'])) {
+                $updateParts[] = "password = :password";
+            }
+            
+            if (empty($updateParts)) {
+                return false; // Nothing to update
+            }
+            
+            $query .= implode(", ", $updateParts);
+            $query .= " WHERE user_id = :user_id";
+            
+            $stmt = $this->conn->prepare($query);
+            
+            // Bind parameters
+            if (isset($data['username'])) {
+                $stmt->bindParam(":username", $data['username']);
+            }
+            if (!empty($data['password'])) {
+                $stmt->bindParam(":password", $data['password']); // Password should already be hashed
+            }
+            $stmt->bindParam(":user_id", $userId);
+            
+            if ($stmt->execute()) {
+                // Log the update activity
+                $activityLogger = new ActivityLogController();
+                $activityLogger->logUserUpdate(
+                    $_SESSION['user_id'],
+                    $userId,
+                    'credentials updated'
+                );
+                
+                return true;
+            }
+            return false;
+        } catch(PDOException $e) {
+            error_log("Update credentials error: " . $e->getMessage());
+            return false;
+        }
+    }
 }

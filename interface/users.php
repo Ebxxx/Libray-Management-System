@@ -108,138 +108,156 @@ $error_message = Session::getFlash('error');
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.7.2/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet"> 
+    <style>
+        .borrowing-monitoring-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .page-header {
+            background-color: #003161;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <div class="d-flex">
         <?php include 'includes/sidebarModal.php'; ?>
         
-        <div class="main-content flex-grow-1">
-            <div class="d-flex justify-content-between align-items-center">
-                <h2>User Management</h2>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal">
-                    <i class="bi bi-plus-lg"></i> Add New User
-                </button>
-            </div>
-            <hr>
-            
-            <?php if (isset($success_message)): ?>
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($success_message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-            
-            <?php if (isset($error_message)): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($error_message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-            
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Username</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th>Max Books</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($users as $user): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($user['user_id']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['username']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                    <td><?php echo ucfirst(htmlspecialchars($user['role'])); ?></td>
-                                    <td><?php echo htmlspecialchars($user['max_books']); ?></td>
-                                    <td>
-                                        <button class="btn btn-sm btn-warning edit-user" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#userModal"
-                                                data-user='<?php echo htmlspecialchars(json_encode($user)); ?>'>
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </button>
-                                        <?php if ($user['user_id'] != $_SESSION['user_id'] && ($user['role'] !== 'admin' || count($users) > 1)): ?>
-                                            <form method="POST" class="d-inline delete-user-form">
-                                                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
-                                                <input type="hidden" name="delete_user" value="1">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">
-                                                    <i class="bi bi-trash"></i> Delete
-                                                </button>
-                                            </form>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="borrowing-monitoring-container">
+                <?php if ($success_message): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($success_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                <?php endif; ?>
+                
+                <?php if ($error_message): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($error_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
 
-    <!-- User Modal (for both Add and Edit) -->
-    <div class="modal fade" id="userModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">User Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="page-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">User Management</h2>
+                    <div class="d-flex align-items-center">
+                        <div class="box p-3 border rounded me-3">
+                            <span>Total Users: <?php echo count($users); ?></span>
+                        </div>
+                        <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#userModal">
+                            <i class="bi bi-plus-lg"></i> Add New
+                        </button>
+                    </div>
                 </div>
-                <form method="POST" id="userForm" class="needs-validation" novalidate>
-                    <div class="modal-body">
-                        <input type="hidden" name="user_id" id="user_id">
-                        <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" name="username" id="username" required
-                                   pattern="[a-zA-Z0-9._-]{3,}" title="Username must be at least 3 characters and can only contain letters, numbers, dots, underscores, and hyphens">
-                            <div class="invalid-feedback">
-                                Please provide a valid username.
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" id="password" minlength="6">
-                            <small class="text-muted">Minimum 6 characters. Leave empty to keep current password when editing</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">First Name</label>
-                            <input type="text" class="form-control" name="first_name" id="first_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Last Name</label>
-                            <input type="text" class="form-control" name="last_name" id="last_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" name="email" id="email" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Role</label>
-                            <select class="form-select" name="role" id="role" required>
-                                <option value="admin">Admin</option>
-                                <option value="faculty">Faculty</option>
-                                <option value="staff">Staff</option>
-                                <option value="student">Student</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save User</button>
-                    </div>
-                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Max Books</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($users as $user): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($user['user_id']); ?></td>
+                                <td><?php echo htmlspecialchars($user['username']); ?></td>
+                                <td><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
+                                <td><?php echo htmlspecialchars($user['email']); ?></td>
+                                <td><?php echo ucfirst(htmlspecialchars($user['role'])); ?></td>
+                                <td><?php echo htmlspecialchars($user['max_books']); ?></td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning edit-user" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#userModal"
+                                            data-user='<?php echo htmlspecialchars(json_encode($user)); ?>'>
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <?php if ($user['user_id'] != $_SESSION['user_id'] && ($user['role'] !== 'admin' || count($users) > 1)): ?>
+                                        <form method="POST" class="d-inline delete-user-form">
+                                            <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
+                                            <input type="hidden" name="delete_user" value="1">
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+
+            <!-- User Modal (for both Add and Edit) -->
+            <div class="modal fade" id="userModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">User Details</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="POST" id="userForm" class="needs-validation" novalidate>
+                            <div class="modal-body">
+                                <input type="hidden" name="user_id" id="user_id">
+                                <div class="mb-3">
+                                    <label class="form-label">Username</label>
+                                    <input type="text" class="form-control" name="username" id="username" required
+                                           pattern="[a-zA-Z0-9._-]{3,}" title="Username must be at least 3 characters and can only contain letters, numbers, dots, underscores, and hyphens">
+                                    <div class="invalid-feedback">
+                                        Please provide a valid username.
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Password</label>
+                                    <input type="password" class="form-control" name="password" id="password" minlength="6">
+                                    <small class="text-muted">Minimum 6 characters. Leave empty to keep current password when editing</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" class="form-control" name="first_name" id="first_name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" name="last_name" id="last_name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" name="email" id="email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Role</label>
+                                    <select class="form-select" name="role" id="role" required>
+                                        <option value="admin">Admin</option>
+                                        <option value="faculty">Faculty</option>
+                                        <option value="staff">Staff</option>
+                                        <option value="student">Student</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Save User</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
