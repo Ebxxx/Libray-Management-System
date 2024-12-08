@@ -130,11 +130,13 @@ $error_message = Session::getFlash('error');
                     <table class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
+                                <th>Cover Image</th>
                                 <th>Accession Number</th>
                                 <th>Title</th>
                                 <th>ISSN</th>
                                 <th>Volume</th>
                                 <th>Issue</th>
+                                <th>Publication Date</th>
                                 <th>Category</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -143,11 +145,25 @@ $error_message = Session::getFlash('error');
                         <tbody>
                             <?php foreach ($periodicals as $periodical): ?>
                             <tr>
+                                <td>
+                                    <?php if (!empty($periodical['cover_image'])): ?>
+                                        <img src="../<?php echo htmlspecialchars($periodical['cover_image']); ?>" 
+                                             alt="Cover" 
+                                             style="width: 50px; height: 70px; object-fit: cover;"
+                                             onerror="this.onerror=null; this.src='assets/images/default-cover.png';">
+                                    <?php else: ?>
+                                        <div class="bg-secondary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 50px; height: 70px;">
+                                            <i class="bi bi-journal"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo htmlspecialchars($periodical['accession_number']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['title']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['issn']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['volume']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['issue']); ?></td>
+                                <td><?php echo htmlspecialchars($periodical['publication_date']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['category']); ?></td>
                                 <td>
                                     <span class="badge 
@@ -188,9 +204,13 @@ $error_message = Session::getFlash('error');
                     <h5 class="modal-title">Periodical Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="resource_id" id="resourceId">
+                        <div class="mb-3">
+                            <label class="form-label">Cover Image</label>
+                            <input type="file" class="form-control" name="cover_image" id="cover_image" accept="image/*">
+                        </div>
                         <div class="mb-3">
                             <label for="title" class="form-label">Title</label>
                             <input type="text" class="form-control" id="title" name="title" required>

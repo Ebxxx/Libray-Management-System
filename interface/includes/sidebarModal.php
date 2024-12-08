@@ -143,7 +143,7 @@ if (!isset($_SESSION['user_id'])) {
 
         
         <div class="mt-auto">
-            <?php if ($_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty'): ?>
+            <?php if ($_SESSION['role'] === 'student' || $_SESSION['role'] === 'faculty' || $_SESSION['role'] === 'staff'): ?>
             <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="help-information.php">
                 <i class="bi bi-question-circle"></i>
                 <span>Help & Information</span>

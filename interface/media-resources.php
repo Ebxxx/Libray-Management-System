@@ -129,6 +129,7 @@ $error_message = Session::getFlash('error');
                     <table class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
+                                <th>Cover Image</th>
                                 <th>Accession Number</th>
                                 <th>Title</th>
                                 <th>Format</th>
@@ -142,6 +143,19 @@ $error_message = Session::getFlash('error');
                         <tbody>
                             <?php foreach ($mediaResources as $media): ?>
                             <tr>
+                                <td>
+                                    <?php if (!empty($media['cover_image'])): ?>
+                                        <img src="../<?php echo htmlspecialchars($media['cover_image']); ?>" 
+                                             alt="Cover" 
+                                             style="width: 50px; height: 70px; object-fit: cover;"
+                                             onerror="this.onerror=null; this.src='assets/images/default-cover.png';">
+                                    <?php else: ?>
+                                        <div class="bg-secondary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 50px; height: 70px;">
+                                            <i class="bi bi-camera-video"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo htmlspecialchars($media['accession_number']); ?></td>
                                 <td><?php echo htmlspecialchars($media['title']); ?></td>
                                 <td><?php echo htmlspecialchars($media['format']); ?></td>
@@ -187,9 +201,16 @@ $error_message = Session::getFlash('error');
                     <h5 class="modal-title">Media Resource Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="resource_id" id="resourceId">
+                        
+                        <!-- Add this new file input field -->
+                        <div class="mb-3">
+                            <label class="form-label">Cover Image</label>
+                            <input type="file" class="form-control" name="cover_image" id="cover_image" accept="image/*">
+                        </div>
+                        
                         <div class="mb-3">
                             <label for="title" class="form-label">Title</label>
                             <input type="text" class="form-control" id="title" name="title" required>

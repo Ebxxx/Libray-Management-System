@@ -12,17 +12,34 @@ class BookController {
 
     public function createBook($bookData) {
         try {
-            // Begin transaction
             $this->conn->beginTransaction();
+
+            // Handle image upload
+            $coverImage = null;
+            if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = '../uploads/covers/';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $fileExtension = pathinfo($_FILES['cover_image']['name'], PATHINFO_EXTENSION);
+                $fileName = uniqid('cover_') . '.' . $fileExtension;
+                $uploadPath = $uploadDir . $fileName;
+
+                if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $uploadPath)) {
+                    $coverImage = 'uploads/covers/' . $fileName;
+                }
+            }
 
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
-                              (title, accession_number, category, status) 
-                              VALUES (:title, :accession_number, :category, 'available')";
+                              (title, accession_number, category, status, cover_image) 
+                              VALUES (:title, :accession_number, :category, 'available', :cover_image)";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $bookData['title']);
             $resourceStmt->bindParam(":accession_number", $bookData['accession_number']);
             $resourceStmt->bindParam(":category", $bookData['category']);
+            $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
             // Get the last inserted resource_id
@@ -55,7 +72,7 @@ class BookController {
 
     public function getBooks() {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, 
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
                              b.author, b.isbn, b.publisher, b.edition, b.publication_date
                       FROM library_resources lr
                       JOIN books b ON lr.resource_id = b.resource_id
@@ -71,7 +88,7 @@ class BookController {
 
     public function getBookById($resourceId) {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, 
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
                              b.author, b.isbn, b.publisher, b.edition, b.publication_date
                       FROM library_resources lr
                       JOIN books b ON lr.resource_id = b.resource_id
@@ -88,20 +105,46 @@ class BookController {
 
     public function updateBook($resourceId, $bookData) {
         try {
-            // Begin transaction
             $this->conn->beginTransaction();
+
+            // Handle image upload
+            $coverImage = null;
+            if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
+                // Delete old image if exists
+                $oldImage = $this->getBookById($resourceId)['cover_image'];
+                if ($oldImage && file_exists('../' . $oldImage)) {
+                    unlink('../' . $oldImage);
+                }
+
+                $uploadDir = '../uploads/covers/';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $fileExtension = pathinfo($_FILES['cover_image']['name'], PATHINFO_EXTENSION);
+                $fileName = uniqid('cover_') . '.' . $fileExtension;
+                $uploadPath = $uploadDir . $fileName;
+
+                if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $uploadPath)) {
+                    $coverImage = 'uploads/covers/' . $fileName;
+                }
+            }
 
             // Update library_resources
             $resourceQuery = "UPDATE library_resources 
                               SET title = :title, 
                                   accession_number = :accession_number, 
-                                  category = :category 
-                              WHERE resource_id = :resource_id";
+                                  category = :category" .
+                                  ($coverImage ? ", cover_image = :cover_image" : "") . 
+                              " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $bookData['title']);
             $resourceStmt->bindParam(":accession_number", $bookData['accession_number']);
             $resourceStmt->bindParam(":category", $bookData['category']);
             $resourceStmt->bindParam(":resource_id", $resourceId);
+            if ($coverImage) {
+                $resourceStmt->bindParam(":cover_image", $coverImage);
+            }
             $resourceStmt->execute();
 
             // Update books

@@ -14,14 +14,32 @@ class PeriodicalController {
             // Begin transaction
             $this->conn->beginTransaction();
 
+            // Handle image upload
+            $coverImage = null;
+            if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = '../uploads/covers/';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $fileExtension = pathinfo($_FILES['cover_image']['name'], PATHINFO_EXTENSION);
+                $fileName = uniqid('cover_') . '.' . $fileExtension;
+                $uploadPath = $uploadDir . $fileName;
+
+                if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $uploadPath)) {
+                    $coverImage = 'uploads/covers/' . $fileName;
+                }
+            }
+
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
-                              (title, accession_number, category, status) 
-                              VALUES (:title, :accession_number, :category, 'available')";
+                              (title, accession_number, category, status, cover_image) 
+                              VALUES (:title, :accession_number, :category, 'available', :cover_image)";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
             $resourceStmt->bindParam(":accession_number", $periodicalData['accession_number']);
             $resourceStmt->bindParam(":category", $periodicalData['category']);
+            $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
             // Get the last inserted resource_id
@@ -53,7 +71,7 @@ class PeriodicalController {
 
     public function getPeriodicals() {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, 
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
                              p.issn, p.volume, p.issue, p.publication_date
                       FROM library_resources lr
                       JOIN periodicals p ON lr.resource_id = p.resource_id
@@ -72,16 +90,46 @@ class PeriodicalController {
             // Begin transaction
             $this->conn->beginTransaction();
 
+            // Handle image upload
+            $coverImage = null;
+            if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
+                // Delete old image if exists
+                $query = "SELECT cover_image FROM library_resources WHERE resource_id = :resource_id";
+                $stmt = $this->conn->prepare($query);
+                $stmt->bindParam(":resource_id", $resourceId);
+                $stmt->execute();
+                $oldImage = $stmt->fetch(PDO::FETCH_ASSOC)['cover_image'];
+                
+                if ($oldImage && file_exists('../' . $oldImage)) {
+                    unlink('../' . $oldImage);
+                }
+
+                $uploadDir = '../uploads/covers/';
+                if (!file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+
+                $fileExtension = pathinfo($_FILES['cover_image']['name'], PATHINFO_EXTENSION);
+                $fileName = uniqid('cover_') . '.' . $fileExtension;
+                $uploadPath = $uploadDir . $fileName;
+
+                if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $uploadPath)) {
+                    $coverImage = 'uploads/covers/' . $fileName;
+                }
+            }
+
             // Update library_resources
             $resourceQuery = "UPDATE library_resources 
                               SET title = :title, 
                                   accession_number = :accession_number, 
-                                  category = :category 
-                              WHERE resource_id = :resource_id";
+                                  category = :category" .
+                                  ($coverImage ? ", cover_image = :cover_image" : "") . 
+                              " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
             $resourceStmt->bindParam(":accession_number", $periodicalData['accession_number']);
             $resourceStmt->bindParam(":category", $periodicalData['category']);
+            $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             $resourceStmt->execute();
 

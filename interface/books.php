@@ -136,6 +136,7 @@ $error_message = Session::getFlash('error');
                     <table class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
+                                <th>Cover Image</th>
                                 <th>Accession Number</th>
                                 <th>Title</th>
                                 <th>Author</th>
@@ -148,6 +149,19 @@ $error_message = Session::getFlash('error');
                         <tbody>
                             <?php foreach ($books as $book): ?>
                             <tr>
+                                <td>
+                                    <?php if (!empty($book['cover_image'])): ?>
+                                        <img src="../uploads/covers/<?php echo htmlspecialchars(basename($book['cover_image'])); ?>" 
+                                             alt="Cover" 
+                                             style="width: 50px; height: 70px; object-fit: cover;"
+                                             onerror="this.onerror=null; this.src='assets/images/default-cover.png';">
+                                    <?php else: ?>
+                                        <div class="bg-secondary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 50px; height: 70px;">
+                                            <i class="bi bi-book"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo htmlspecialchars($book['accession_number']); ?></td>
                                 <td><?php echo htmlspecialchars($book['title']); ?></td>
                                 <td><?php echo htmlspecialchars($book['author']); ?></td>
@@ -181,6 +195,81 @@ $error_message = Session::getFlash('error');
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Book Details Offcanvas -->
+                <div class="offcanvas offcanvas-end" tabindex="-1" id="bookDetailsDrawer" aria-labelledby="bookDetailsLabel" style="width: 600px;">
+                    <div class="offcanvas-header">
+                        <h5 class="offcanvas-title" id="bookDetailsLabel">Book Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                    </div>
+                    <div class="offcanvas-body">
+                        <div class="text-center mb-4">
+                            <div id="drawerCoverImage" class="mb-3">
+                                <!-- Cover image will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="book-info">
+                            <h3 id="drawerTitle" class="mb-3"></h3>
+                            
+                            <div class="mb-4">
+                                <span id="drawerStatus" class="badge"></span>
+                                <span id="drawerCategory" class="badge bg-secondary ms-2"></span>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="detail-item">
+                                        <small class="text-muted">Author</small>
+                                        <p id="drawerAuthor" class="mb-2"></p>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="detail-item">
+                                        <small class="text-muted">ISBN</small>
+                                        <p id="drawerIsbn" class="mb-2"></p>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="detail-item">
+                                        <small class="text-muted">Publisher</small>
+                                        <p id="drawerPublisher" class="mb-2"></p>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="detail-item">
+                                        <small class="text-muted">Edition</small>
+                                        <p id="drawerEdition" class="mb-2"></p>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="detail-item">
+                                        <small class="text-muted">Publication Date</small>
+                                        <p id="drawerPublicationDate" class="mb-2"></p>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="detail-item">
+                                        <small class="text-muted">Accession Number</small>
+                                        <p id="drawerAccessionNumber" class="mb-2"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 d-flex gap-2">
+                                <button class="btn btn-warning edit-from-drawer" type="button">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <form method="POST" class="d-inline delete-from-drawer" onsubmit="return confirm('Are you sure you want to delete this book?');">
+                                    <input type="hidden" name="resource_id" id="drawerResourceId">
+                                    <input type="hidden" name="delete_book" value="1">
+                                    <button type="submit" class="btn btn-outline-danger">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Book Modal (Create/Edit) -->
@@ -191,9 +280,14 @@ $error_message = Session::getFlash('error');
                             <h5 class="modal-title">Book Details</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <form method="POST">
+                        <form method="POST" enctype="multipart/form-data">
                             <div class="modal-body">
                                 <input type="hidden" name="resource_id" id="resource_id">
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Cover Image</label>
+                                    <input type="file" class="form-control" name="cover_image" id="cover_image" accept="image/*">
+                                </div>
                                 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">

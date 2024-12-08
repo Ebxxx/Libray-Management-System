@@ -317,11 +317,11 @@ class BorrowingController {
 
     public function getAvailableBooks($type = 'book') {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.category, lr.accession_number, 
-                             b.author, b.isbn, b.publisher 
+            $query = "SELECT lr.*, b.* 
                       FROM library_resources lr
-                      INNER JOIN books b ON lr.resource_id = b.resource_id
-                      WHERE lr.status = 'available'";
+                      JOIN books b ON lr.resource_id = b.resource_id
+                      WHERE lr.status = 'available'
+                      ORDER BY lr.created_at DESC";
             
             $stmt = $this->conn->prepare($query);
             
@@ -337,11 +337,11 @@ class BorrowingController {
 
     public function getAvailableMedia($type = 'media') {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.category, lr.accession_number, 
-                             m.media_type, m.runtime, m.format
+            $query = "SELECT lr.*, mr.* 
                       FROM library_resources lr
-                      INNER JOIN media_resources m ON lr.resource_id = m.resource_id
-                      WHERE lr.status = 'available'";
+                      JOIN media_resources mr ON lr.resource_id = mr.resource_id
+                      WHERE lr.status = 'available'
+                      ORDER BY lr.created_at DESC";
             
             $stmt = $this->conn->prepare($query);
             
@@ -357,11 +357,11 @@ class BorrowingController {
     
     public function getAvailablePeriodicals($type = 'periodical') {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.category, lr.accession_number, 
-                             p.issn as publisher, p.publication_date, p.volume, p.issue
+            $query = "SELECT lr.*, p.* 
                       FROM library_resources lr
-                      INNER JOIN periodicals p ON lr.resource_id = p.resource_id
-                      WHERE lr.status = 'available'";
+                      JOIN periodicals p ON lr.resource_id = p.resource_id
+                      WHERE lr.status = 'available'
+                      ORDER BY lr.created_at DESC";
             
             $stmt = $this->conn->prepare($query);
             

@@ -53,3 +53,53 @@ document.getElementById('bookModal').addEventListener('hidden.bs.modal', functio
     this.querySelector('form').reset();
 });
 
+// Resource drawer functionality
+function showResourceDetails(resource) {
+    // Initialize the Bootstrap offcanvas
+    const drawer = new bootstrap.Offcanvas(document.getElementById('resourceDrawer'));
+    
+    // Set the resource details in the drawer
+    document.getElementById('drawerTitle').textContent = resource.title;
+    
+    // Handle cover image
+    const coverImage = document.getElementById('drawerCoverImage');
+    if (resource.cover_image) {
+        coverImage.src = '../' + resource.cover_image;
+        coverImage.onerror = function() {
+            this.onerror = null;
+            this.src = 'assets/images/default.png';
+        };
+        coverImage.style.display = 'block';
+    } else {
+        coverImage.src = 'assets/images/default.png';
+        coverImage.style.display = 'block';
+    }
+    
+    // Build details HTML based on resource type
+    let detailsHTML = '';
+    const fields = {
+        'Author': 'author',
+        'Category': 'category',
+        'ISBN': 'isbn',
+        'Publisher': 'publisher',
+        'Accession Number': 'accession_number',
+        'Media Type': 'media_type',
+        'Runtime': 'runtime',
+        'Publication Date': 'publication_date',
+        'Volume': 'volume',
+        'Issue': 'issue'
+    };
+
+    for (const [label, field] of Object.entries(fields)) {
+        if (resource[field]) {
+            detailsHTML += `<p><strong>${label}:</strong> ${resource[field]}</p>`;
+        }
+    }
+    
+    document.getElementById('drawerDetails').innerHTML = detailsHTML;
+    document.getElementById('drawerResourceId').value = resource.resource_id;
+    
+    // Show the drawer
+    drawer.show();
+}
+
