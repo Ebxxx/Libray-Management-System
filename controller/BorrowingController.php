@@ -390,4 +390,34 @@ class BorrowingController {
             return [];
         }
     }
+    // Overdue borrowings for reporting
+    public function getOverdueBorrowings() {
+        try {
+            $query = "SELECT 
+                        b.borrowing_id, 
+                        b.borrow_date, 
+                        b.due_date, 
+                        b.fine_amount,
+                        u.first_name, 
+                        u.last_name, 
+                        u.email, 
+                        u.role,
+                        lr.title AS resource_title,
+                        lr.category AS resource_type,
+                        DATEDIFF(CURRENT_DATE, b.due_date) as days_overdue
+                    FROM borrowings b
+                    JOIN users u ON b.user_id = u.user_id
+                    JOIN library_resources lr ON b.resource_id = lr.resource_id
+                    WHERE b.status = 'overdue' 
+                        OR (b.status = 'active' AND b.due_date < CURRENT_DATE)
+                    ORDER BY b.due_date ASC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get overdue borrowings error: " . $e->getMessage());
+            return [];
+        }
+    }
 }

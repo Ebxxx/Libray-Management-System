@@ -11,6 +11,32 @@ class UserController {
         $this->conn = $database->getConnection();
     }
 
+    private function generateMembershipId($role) {
+        // Generate a prefix based on role
+        $prefix = substr(strtoupper($role), 0, 1); // A for admin, S for student, etc.
+        
+        // Get current year
+        $year = date('Y');
+        
+        // Generate a random 4-digit number
+        $random = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        
+        // Combine: [Role][Year][Random] e.g., A20240001
+        $membership_id = $prefix . $year . $random;
+        
+        // Check if this ID already exists
+        $stmt = $this->conn->prepare("SELECT membership_id FROM users WHERE membership_id = :membership_id");
+        $stmt->bindParam(":membership_id", $membership_id);
+        $stmt->execute();
+        
+        // If ID exists, recursively try again
+        if ($stmt->rowCount() > 0) {
+            return $this->generateMembershipId($role);
+        }
+        
+        return $membership_id;
+    }
+
     public function login($username, $password) {
         try {
             $query = "SELECT user_id, username, password, role, first_name, last_name 
@@ -70,12 +96,16 @@ class UserController {
                 return false;
             }
     
+            // Generate membership ID
+            $data['membership_id'] = $this->generateMembershipId($data['role']);
+    
             // Insert the new user
-            $query = "INSERT INTO users (username, password, first_name, last_name, email, role, max_books) 
-                      VALUES (:username, :password, :first_name, :last_name, :email, :role, :max_books)";
+            $query = "INSERT INTO users (membership_id, username, password, first_name, last_name, email, role, max_books) 
+                      VALUES (:membership_id, :username, :password, :first_name, :last_name, :email, :role, :max_books)";
             $stmt = $this->conn->prepare($query);
     
             // Bind parameters
+            $stmt->bindParam(":membership_id", $data['membership_id']);
             $stmt->bindParam(":username", $data['username']);
             $stmt->bindParam(":password", $data['password']); // Plain text password
             $stmt->bindParam(":first_name", $data['first_name']);
@@ -93,7 +123,7 @@ class UserController {
 
     public function getUsers() {
         try {
-            $query = "SELECT user_id, username, first_name, last_name, email, role, max_books 
+            $query = "SELECT user_id, membership_id, username, first_name, last_name, email, role, max_books 
                      FROM users ORDER BY user_id DESC";
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
@@ -106,7 +136,7 @@ class UserController {
 
     public function getUserById($userId) {
         try {
-            $query = "SELECT user_id, username, first_name, last_name, email, role, max_books 
+            $query = "SELECT user_id, membership_id, username, first_name, last_name, email, role, max_books 
                      FROM users WHERE user_id = :user_id";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":user_id", $userId);

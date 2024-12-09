@@ -3,10 +3,25 @@ require_once '../controller/UserController.php';
 require_once '../controller/Session.php';
 
 Session::start();
-Session::requireAdmin();
+if (!($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff')) {
+    header("Location: dashboard.php");
+    exit();
+}
 
 $userController = new UserController();
 $users = $userController->getUsers();
+
+// Add search functionality
+$searchQuery = filter_input(INPUT_GET, 'search', FILTER_SANITIZE_STRING);
+if ($searchQuery) {
+    $users = array_filter($users, function($user) use ($searchQuery) {
+        $searchLower = strtolower($searchQuery);
+        return strpos(strtolower($user['username']), $searchLower) !== false ||
+               strpos(strtolower($user['first_name'] . ' ' . $user['last_name']), $searchLower) !== false ||
+               strpos(strtolower($user['membership_id']), $searchLower) !== false ||
+               strpos((string)$user['user_id'], $searchQuery) !== false;
+    });
+}
 
 // Define role configurations
 $roleConfig = [
@@ -18,8 +33,13 @@ $roleConfig = [
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Handle Delete
+    // Only allow admin to delete users
     if (isset($_POST['delete_user'])) {
+        if ($_SESSION['role'] !== 'admin') {
+            Session::setFlash('error', 'Only administrators can delete users');
+            header("Location: users.php");
+            exit();
+        }
         $userId = filter_input(INPUT_POST, 'user_id', FILTER_SANITIZE_NUMBER_INT);
         
         // Prevent deleting own account
@@ -37,8 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: users.php");
         exit();
     }
-    // Handle Create/Update
+    // For create/update, check if user is admin for updates
     else {
+        if (isset($_POST['user_id']) && !empty($_POST['user_id']) && $_SESSION['role'] !== 'admin') {
+            Session::setFlash('error', 'Only administrators can edit users');
+            header("Location: users.php");
+            exit();
+        }
         // Sanitize input
         $userData = [
             'username' => filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING),
@@ -148,12 +173,29 @@ $error_message = Session::getFlash('error');
                 <div class="page-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0">User Management</h2>
                     <div class="d-flex align-items-center">
-                        <div class="box p-3 border rounded me-3">
-                            <span>Total Users: <?php echo count($users); ?></span>
-                        </div>
-                        <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#userModal">
-                            <i class="bi bi-plus-lg"></i> Add New
-                        </button>
+                        <form class="me-3" method="GET" action="">
+                            <div class="input-group">
+                                <input type="text" 
+                                       class="form-control" 
+                                       placeholder="Search users" 
+                                       name="search"
+                                       value="<?php echo htmlspecialchars($searchQuery ?? ''); ?>">
+                                <button class="btn btn-outline-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                <?php if ($searchQuery): ?>
+                                    <a href="users.php" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x-lg"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </form>
+                     
+                        <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+                            <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#userModal">
+                                <i class="bi bi-plus-lg"></i> Add New
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -162,6 +204,7 @@ $error_message = Session::getFlash('error');
                         <thead class="table-dark">
                             <tr>
                                 <th>ID</th>
+                                <th>Membership ID</th>
                                 <th>Username</th>
                                 <th>Name</th>
                                 <th>Email</th>
@@ -174,26 +217,29 @@ $error_message = Session::getFlash('error');
                             <?php foreach ($users as $user): ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($user['user_id']); ?></td>
+                                <td><?php echo htmlspecialchars($user['membership_id']); ?></td>
                                 <td><?php echo htmlspecialchars($user['username']); ?></td>
                                 <td><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
                                 <td><?php echo htmlspecialchars($user['email']); ?></td>
                                 <td><?php echo ucfirst(htmlspecialchars($user['role'])); ?></td>
                                 <td><?php echo htmlspecialchars($user['max_books']); ?></td>
                                 <td>
-                                    <button class="btn btn-sm btn-warning edit-user" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#userModal"
-                                            data-user='<?php echo htmlspecialchars(json_encode($user)); ?>'>
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </button>
-                                    <?php if ($user['user_id'] != $_SESSION['user_id'] && ($user['role'] !== 'admin' || count($users) > 1)): ?>
-                                        <form method="POST" class="d-inline delete-user-form">
-                                            <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
-                                            <input type="hidden" name="delete_user" value="1">
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </button>
-                                        </form>
+                                    <?php if ($_SESSION['role'] === 'admin'): ?>
+                                        <button class="btn btn-sm btn-warning edit-user" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#userModal"
+                                                data-user='<?php echo htmlspecialchars(json_encode($user)); ?>'>
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        <?php if ($user['user_id'] != $_SESSION['user_id'] && ($user['role'] !== 'admin' || count($users) > 1)): ?>
+                                            <form method="POST" class="d-inline delete-user-form">
+                                                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
+                                                <input type="hidden" name="delete_user" value="1">
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>

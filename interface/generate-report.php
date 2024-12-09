@@ -27,6 +27,7 @@ $userController = new UserController();
 $borrowings = $borrowingController->getAllBorrowings();
 $resourceStats = $resourceController->getBookStatistics();
 $categoryDistribution = $resourceController->getBookCategoriesDistribution();
+$overdueBorrowings = $borrowingController->getOverdueBorrowings();
 
 // Get resource type totals
 $totalBooks = $bookController->getTotalBooks();
@@ -37,14 +38,19 @@ $totalMediaResources = $mediaResourceController->getTotalMediaResources();
 $userStats = $userController->getUserStatistics();
 
 // Modify the generatePDF function to exclude current borrowings in full report
-function generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals, $totalMediaResources, $userStats, $reportType = 'full') {
+function generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals, $totalMediaResources, $userStats, $reportType = 'full', $overdueBorrowings = []) {
     // Create new PDF document
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
     // Set document information
     $pdf->SetCreator('Library Management System');
     $pdf->SetAuthor('System Administrator');
-    $pdf->SetTitle($reportType === 'full' ? 'Library Resources Report' : 'Current Borrowings Report');
+    $pdf->SetTitle(match($reportType) {
+        'full' => 'Library Resources Report',
+        'borrowings' => 'Current Borrowings Report',
+        'overdue' => 'Overdue Books and Fines Report',
+        default => 'Library Report'
+    });
 
     // Set default header data
     $pdf->SetHeaderData('', 0, 'Library Management System', 'Generated Report - ' . date('Y-m-d H:i:s'));
@@ -60,7 +66,12 @@ function generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals
     $pdf->SetFont('helvetica', 'B', 16);
 
     // Title
-    $pdf->Cell(0, 15, $reportType === 'full' ? 'Library Resources Report' : 'Current Borrowings Report', 0, 1, 'C');
+    $pdf->Cell(0, 15, match($reportType) {
+        'full' => 'Library Resources Report',
+        'borrowings' => 'Current Borrowings Report',
+        'overdue' => 'Overdue Books and Fines Report',
+        default => 'Library Report'
+    }, 0, 1, 'C');
     $pdf->Ln(10);
 
     if ($reportType === 'full') {
@@ -120,26 +131,91 @@ function generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals
         $pdf->Cell(0, 8, $userStats['admin_count'], 0, 1);
         
         $pdf->Ln(10);
-    }
 
-    // Current Borrowings
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(0, 10, 'Current Borrowings', 0, 1, 'L');
-    $pdf->SetFont('helvetica', '', 10);
+        // Add Overdue Books Section
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->Cell(0, 10, 'Overdue Books and Fines', 0, 1, 'L');
+        $pdf->SetFont('helvetica', '', 10);
 
-    // Table header
-    $pdf->SetFillColor(230, 230, 230);
-    $pdf->Cell(50, 8, 'User', 1, 0, 'C', true);
-    $pdf->Cell(60, 8, 'Resource', 1, 0, 'C', true);
-    $pdf->Cell(40, 8, 'Borrow Date', 1, 0, 'C', true);
-    $pdf->Cell(40, 8, 'Due Date', 1, 1, 'C', true);
+        // Table header
+        $pdf->SetFillColor(230, 230, 230);
+        $pdf->Cell(45, 8, 'User', 1, 0, 'C', true);
+        $pdf->Cell(55, 8, 'Resource', 1, 0, 'C', true);
+        $pdf->Cell(30, 8, 'Due Date', 1, 0, 'C', true);
+        $pdf->Cell(30, 8, 'Days Overdue', 1, 0, 'C', true);
+        $pdf->Cell(30, 8, 'Fine Amount', 1, 1, 'C', true);
 
-    // Table content
-    foreach ($borrowings as $borrowing) {
-        $pdf->Cell(50, 8, $borrowing['first_name'] . ' ' . $borrowing['last_name'], 1, 0, 'L');
-        $pdf->Cell(60, 8, $borrowing['resource_title'], 1, 0, 'L');
-        $pdf->Cell(40, 8, date('Y-m-d', strtotime($borrowing['borrow_date'])), 1, 0, 'C');
-        $pdf->Cell(40, 8, date('Y-m-d', strtotime($borrowing['due_date'])), 1, 1, 'C');
+        // Table content
+        foreach ($overdueBorrowings as $borrowing) {
+            $pdf->Cell(45, 8, $borrowing['first_name'] . ' ' . $borrowing['last_name'], 1, 0, 'L');
+            $pdf->Cell(55, 8, $borrowing['resource_title'], 1, 0, 'L');
+            $pdf->Cell(30, 8, date('Y-m-d', strtotime($borrowing['due_date'])), 1, 0, 'C');
+            $pdf->Cell(30, 8, $borrowing['days_overdue'], 1, 0, 'C');
+            $pdf->Cell(30, 8, '$' . number_format($borrowing['fine_amount'], 2), 1, 1, 'C');
+        }
+
+        // Add total fines
+        $totalFines = array_sum(array_column($overdueBorrowings, 'fine_amount'));
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->Cell(160, 8, 'Total Outstanding Fines:', 1, 0, 'R');
+        $pdf->Cell(30, 8, '$' . number_format($totalFines, 2), 1, 1, 'C');
+    } elseif ($reportType === 'borrowings') {
+        // Current Borrowings
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->Cell(0, 10, 'Current Borrowings', 0, 1, 'L');
+        $pdf->SetFont('helvetica', '', 10);
+
+        // Table header
+        $pdf->SetFillColor(230, 230, 230);
+        $pdf->Cell(50, 8, 'User', 1, 0, 'C', true);
+        $pdf->Cell(60, 8, 'Resource', 1, 0, 'C', true);
+        $pdf->Cell(40, 8, 'Borrow Date', 1, 0, 'C', true);
+        $pdf->Cell(40, 8, 'Due Date', 1, 1, 'C', true);
+
+        // Table content
+        foreach ($borrowings as $borrowing) {
+            $pdf->Cell(50, 8, $borrowing['first_name'] . ' ' . $borrowing['last_name'], 1, 0, 'L');
+            $pdf->Cell(60, 8, $borrowing['resource_title'], 1, 0, 'L');
+            $pdf->Cell(40, 8, date('Y-m-d', strtotime($borrowing['borrow_date'])), 1, 0, 'C');
+            $pdf->Cell(40, 8, date('Y-m-d', strtotime($borrowing['due_date'])), 1, 1, 'C');
+        }
+    } elseif ($reportType === 'overdue') {
+        // Overdue Books Section
+        $pdf->SetFont('helvetica', 'B', 14);
+        $pdf->Cell(0, 10, 'Overdue Books and Fines', 0, 1, 'L');
+        $pdf->SetFont('helvetica', '', 10);
+
+        // Table header
+        $pdf->SetFillColor(230, 230, 230);
+        $pdf->Cell(45, 8, 'User', 1, 0, 'C', true);
+        $pdf->Cell(55, 8, 'Resource', 1, 0, 'C', true);
+        $pdf->Cell(30, 8, 'Due Date', 1, 0, 'C', true);
+        $pdf->Cell(30, 8, 'Days Overdue', 1, 0, 'C', true);
+        $pdf->Cell(30, 8, 'Fine Amount', 1, 1, 'C', true);
+
+        // Table content
+        foreach ($overdueBorrowings as $borrowing) {
+            $pdf->Cell(45, 8, $borrowing['first_name'] . ' ' . $borrowing['last_name'], 1, 0, 'L');
+            $pdf->Cell(55, 8, $borrowing['resource_title'], 1, 0, 'L');
+            $pdf->Cell(30, 8, date('Y-m-d', strtotime($borrowing['due_date'])), 1, 0, 'C');
+            $pdf->Cell(30, 8, $borrowing['days_overdue'], 1, 0, 'C');
+            $pdf->Cell(30, 8, '$' . number_format($borrowing['fine_amount'], 2), 1, 1, 'C');
+        }
+
+        // Add total fines
+        $totalFines = array_sum(array_column($overdueBorrowings, 'fine_amount'));
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->Cell(160, 8, 'Total Outstanding Fines:', 1, 0, 'R');
+        $pdf->Cell(30, 8, '$' . number_format($totalFines, 2), 1, 1, 'C');
+
+        // Add summary
+        $pdf->Ln(10);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(0, 8, 'Summary:', 0, 1, 'L');
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->Cell(0, 8, 'Total Overdue Items: ' . count($overdueBorrowings), 0, 1, 'L');
+        $pdf->Cell(0, 8, 'Total Outstanding Fines: $' . number_format($totalFines, 2), 0, 1, 'L');
     }
 
     return $pdf;
@@ -148,7 +224,7 @@ function generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals
 // Handle PDF generation request
 if (isset($_POST['generate_pdf'])) {
     $reportType = $_POST['report_type'] ?? 'full';
-    $pdf = generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals, $totalMediaResources, $userStats, $reportType);
+    $pdf = generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals, $totalMediaResources, $userStats, $reportType, $overdueBorrowings);
     $pdf->Output('library_report_' . date('Y-m-d') . '.pdf', 'D');
     exit();
 }
@@ -185,10 +261,16 @@ if (isset($_POST['generate_pdf'])) {
                                                 Full Report (Including Statistics)
                                             </label>
                                         </div>
-                                        <div class="form-check mb-3 d-inline-block text-start ms-4">
+                                        <div class="form-check mb-2 d-inline-block text-start ms-4">
                                             <input class="form-check-input" type="radio" name="report_type" id="borrowingsReport" value="borrowings">
                                             <label class="form-check-label" for="borrowingsReport">
                                                 Current Borrowings
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-3 d-inline-block text-start ms-4">
+                                            <input class="form-check-input" type="radio" name="report_type" id="overdueReport" value="overdue">
+                                            <label class="form-check-label" for="overdueReport">
+                                                Overdue Books & Fines
                                             </label>
                                         </div>
                                     </div>

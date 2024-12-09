@@ -26,7 +26,7 @@ if (!isset($_SESSION['user_id'])) {
                     </a>
                 </li>
                 
-                <?php if ($_SESSION['role'] === 'admin'): ?>
+                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="users.php">
                         <i class="bi bi-people"></i>
