@@ -12,15 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Delete
     if (isset($_POST['delete_periodical'])) {
         $resourceId = filter_input(INPUT_POST, 'resource_id', FILTER_SANITIZE_NUMBER_INT);
-        if ($periodicalController->deletePeriodical($resourceId)) {
-            Session::setFlash('success', 'Periodical deleted successfully');
-            header("Location: periodicals.php");
-            exit();
-        } else {
-            Session::setFlash('error', 'Error deleting periodical');
-            header("Location: periodicals.php");
-            exit();
+        try {
+            if ($periodicalController->deletePeriodical($resourceId)) {
+                Session::setFlash('success', 'Periodical deleted successfully');
+            }
+        } catch (Exception $e) {
+            Session::setFlash('error', $e->getMessage());
         }
+        header("Location: periodicals.php");
+        exit();
     }
     // Handle Create/Update
     else {
@@ -108,6 +108,13 @@ $error_message = Session::getFlash('error');
                 <?php if ($success_message): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <?php echo htmlspecialchars($success_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($error_message): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($error_message); ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 <?php endif; ?>

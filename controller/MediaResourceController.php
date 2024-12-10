@@ -160,30 +160,48 @@ class MediaResourceController {
 
     public function deleteMediaResource($resourceId) {
         try {
+            // Check if media resource is currently borrowed
+            $borrowQuery = "SELECT COUNT(*) as borrow_count 
+                           FROM borrowings 
+                           WHERE resource_id = :resource_id 
+                           AND status = 'active'";
+            $borrowStmt = $this->conn->prepare($borrowQuery);
+            $borrowStmt->bindParam(":resource_id", $resourceId);
+            $borrowStmt->execute();
+            $borrowResult = $borrowStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($borrowResult['borrow_count'] > 0) {
+                throw new Exception("Cannot delete: Media resource is currently borrowed");
+            }
+
             // Begin transaction
             $this->conn->beginTransaction();
 
-            // Delete from media_resources first due to foreign key constraint
+            // Delete from media_resources first
             $mediaQuery = "DELETE FROM media_resources WHERE resource_id = :resource_id";
             $mediaStmt = $this->conn->prepare($mediaQuery);
             $mediaStmt->bindParam(":resource_id", $resourceId);
             $mediaStmt->execute();
 
-            // Then delete from library_resources
-            $resourceQuery = "DELETE FROM library_resources WHERE resource_id = :resource_id";
+            // Update library_resources status to 'deleted' instead of deleting
+            $resourceQuery = "UPDATE library_resources 
+                             SET status = 'deleted' 
+                             WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             $resourceStmt->execute();
 
             // Commit transaction
             $this->conn->commit();
-
             return true;
-        } catch (PDOException $e) {
-            // Rollback transaction
-            $this->conn->rollBack();
+
+        } catch (Exception $e) {
+            // Rollback transaction if started
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Delete media resource error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 

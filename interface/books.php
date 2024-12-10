@@ -12,15 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Delete
     if (isset($_POST['delete_book'])) {
         $resourceId = filter_input(INPUT_POST, 'resource_id', FILTER_SANITIZE_NUMBER_INT);
-        if ($bookController->deleteBook($resourceId)) {
-            Session::setFlash('success', 'Book deleted successfully');
-            header("Location: books.php");
-            exit();
-        } else {
-            Session::setFlash('error', 'Error deleting book');
-            header("Location: books.php");
-            exit();
+        try {
+            if ($bookController->deleteBook($resourceId)) {
+                Session::setFlash('success', 'Book deleted successfully');
+            }
+        } catch (Exception $e) {
+            Session::setFlash('error', $e->getMessage());
         }
+        header("Location: books.php");
+        exit();
     }
     // Handle Create/Update
     else {

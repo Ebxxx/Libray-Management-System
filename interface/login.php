@@ -30,6 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         body {
             font-family: 'Inter', sans-serif;
         }
+        input[type="text"], input[type="password"] {
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #7c3aed; /* Purple border on focus */
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3); /* Purple shadow on focus */
+        }
     </style>
 </head>
 <body class="bg-white min-h-screen flex items-center justify-center">
@@ -46,12 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="text-center relative z-10">
                 <h1 class="text-3xl font-bold text-white mb-4">Welcome to Library Management System</h1>
                 <p class="text-gray-100">Borrow and manage your books with ease.</p>
-                <!-- Add dots/indicators -->
-                <!-- <div class="flex justify-center mt-6 space-x-2">
-                    <div class="w-2 h-2 rounded-full bg-white"></div>
-                    <div class="w-2 h-2 rounded-full bg-white/50"></div>
-                    <div class="w-2 h-2 rounded-full bg-white/50"></div>
-                </div> -->
             </div>
         </div>
 
@@ -86,23 +87,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
                             Password
                         </label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            required 
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            placeholder="Enter Password"
-                        >
+                        <div class="relative">
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                required 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                placeholder="Enter Password"
+                            >
+                            <button type="button" 
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                    onclick="togglePassword()">
+                                <i id="eyeIcon" class="ri-eye-off-line text-xl"></i>
+                            </button>
+                        </div>
                     </div>
-
-                    <!-- <div class="flex items-center justify-between">
-                        <label class="flex items-center">
-                            <input type="checkbox" class="form-checkbox text-purple-600">
-                            <span class="ml-2 text-sm text-gray-600">Remember Me</span>
-                        </label>
-                        <a href="#" class="text-sm text-purple-600 hover:text-purple-700">Forgot Password?</a>
-                    </div> -->
 
                     <button 
                         type="submit" 
@@ -111,6 +111,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Login
                     </button>
                 </form>
+                <script>
+                    function togglePassword() {
+                        const passwordInput = document.getElementById('password');
+                        const eyeIcon = document.getElementById('eyeIcon');
+                        
+                        if (passwordInput.type === 'password') {
+                            passwordInput.type = 'text';
+                            eyeIcon.className = 'ri-eye-line text-xl transition-transform duration-300 rotate-180';
+                        } else {
+                            passwordInput.type = 'password';
+                            eyeIcon.className = 'ri-eye-off-line text-xl transition-transform duration-300 rotate-0';
+                        }
+                    }
+                </script>
             </div>
         </div>
     </div>

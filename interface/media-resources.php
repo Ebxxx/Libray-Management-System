@@ -12,15 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Delete
     if (isset($_POST['delete_media'])) {
         $resourceId = filter_input(INPUT_POST, 'resource_id', FILTER_SANITIZE_NUMBER_INT);
-        if ($mediaController->deleteMediaResource($resourceId)) {
-            Session::setFlash('success', 'Media resource deleted successfully');
-            header("Location: media-resources.php");
-            exit();
-        } else {
-            Session::setFlash('error', 'Error deleting media resource');
-            header("Location: media-resources.php");
-            exit();
+        try {
+            if ($mediaController->deleteMediaResource($resourceId)) {
+                Session::setFlash('success', 'Media resource deleted successfully');
+            }
+        } catch (Exception $e) {
+            Session::setFlash('error', $e->getMessage());
         }
+        header("Location: media-resources.php");
+        exit();
     }
     // Handle Create/Update
     else {
@@ -107,6 +107,13 @@ $error_message = Session::getFlash('error');
                 <?php if ($success_message): ?>
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <?php echo htmlspecialchars($success_message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($error_message): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($error_message); ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 <?php endif; ?>

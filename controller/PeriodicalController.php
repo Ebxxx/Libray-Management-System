@@ -162,30 +162,48 @@ class PeriodicalController {
 
     public function deletePeriodical($resourceId) {
         try {
+            // Check if periodical is currently borrowed
+            $borrowQuery = "SELECT COUNT(*) as borrow_count 
+                           FROM borrowings 
+                           WHERE resource_id = :resource_id 
+                           AND status = 'active'";
+            $borrowStmt = $this->conn->prepare($borrowQuery);
+            $borrowStmt->bindParam(":resource_id", $resourceId);
+            $borrowStmt->execute();
+            $borrowResult = $borrowStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($borrowResult['borrow_count'] > 0) {
+                throw new Exception("Cannot delete: Periodical is currently borrowed");
+            }
+
             // Begin transaction
             $this->conn->beginTransaction();
 
-            // Delete from periodicals first due to foreign key constraint
+            // Delete from periodicals first
             $periodicalQuery = "DELETE FROM periodicals WHERE resource_id = :resource_id";
             $periodicalStmt = $this->conn->prepare($periodicalQuery);
             $periodicalStmt->bindParam(":resource_id", $resourceId);
             $periodicalStmt->execute();
 
-            // Then delete from library_resources
-            $resourceQuery = "DELETE FROM library_resources WHERE resource_id = :resource_id";
+            // Update library_resources status to 'deleted' instead of deleting
+            $resourceQuery = "UPDATE library_resources 
+                             SET status = 'deleted' 
+                             WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             $resourceStmt->execute();
 
             // Commit transaction
             $this->conn->commit();
-
             return true;
-        } catch (PDOException $e) {
-            // Rollback transaction
-            $this->conn->rollBack();
+
+        } catch (Exception $e) {
+            // Rollback transaction if started
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Delete periodical error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
