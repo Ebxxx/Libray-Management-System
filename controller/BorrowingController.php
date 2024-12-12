@@ -90,32 +90,48 @@ class BorrowingController {
 
     public function returnResource($borrowing_id) {
         try {
-            // Start a transaction
             $this->conn->beginTransaction();
-    
-            // Retrieve borrowing details
-            $borrow_query = "SELECT resource_id, user_id, due_date, status FROM borrowings 
-                             WHERE borrowing_id = :borrowing_id AND status IN ('active', 'overdue')";
+
+            // Get borrowing details with resource type
+            $borrow_query = "SELECT b.*, lr.category as resource_type 
+                            FROM borrowings b
+                            JOIN library_resources lr ON b.resource_id = lr.resource_id
+                            WHERE b.borrowing_id = :borrowing_id 
+                            AND b.status IN ('active', 'overdue')";
             $stmt = $this->conn->prepare($borrow_query);
             $stmt->bindParam(":borrowing_id", $borrowing_id);
             $stmt->execute();
             $borrowing = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
             if (!$borrowing) {
                 throw new Exception("Borrowing record not found");
             }
-    
+
+            // Get fine configuration
+            $fine_query = "SELECT fine_amount 
+                          FROM fine_configurations 
+                          WHERE resource_type = :resource_type";
+            $stmt = $this->conn->prepare($fine_query);
+            $stmt->bindParam(":resource_type", $borrowing['resource_type']);
+            $stmt->execute();
+            $fine_config = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Debug log
+            error_log("Resource Type: " . $borrowing['resource_type']);
+            error_log("Fine Config: " . print_r($fine_config, true));
+
+            $fine_rate = $fine_config ? $fine_config['fine_amount'] : 1.00;
+            
             // Calculate fine if overdue
             $current_date = date('Y-m-d H:i:s');
             $fine_amount = 0;
-            $fine_rate = 1; // $1 per day overdue
-    
-            // Only calculate fine if the resource is past due date
+
             if (strtotime($current_date) > strtotime($borrowing['due_date'])) {
                 $overdue_days = ceil((strtotime($current_date) - strtotime($borrowing['due_date'])) / (60 * 60 * 24));
                 $fine_amount = $overdue_days * $fine_rate;
+                error_log("Overdue days: $overdue_days, Fine rate: $fine_rate, Total fine: $fine_amount");
             }
-    
+
             // Update borrowing record
             $return_query = "UPDATE borrowings 
                              SET return_date = :return_date, 
@@ -417,6 +433,57 @@ class BorrowingController {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Get overdue borrowings error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Add new method to manage fine configurations
+    public function updateFineConfiguration($resource_type, $fine_amount) {
+        try {
+            // Convert resource type to lowercase for consistency
+            $resource_type = strtolower($resource_type);
+            
+            // First check if the configuration exists
+            $check_query = "SELECT * FROM fine_configurations WHERE resource_type = :resource_type";
+            $stmt = $this->conn->prepare($check_query);
+            $stmt->bindParam(":resource_type", $resource_type);
+            $stmt->execute();
+            
+            if ($stmt->rowCount() > 0) {
+                // Update existing configuration
+                $query = "UPDATE fine_configurations 
+                         SET fine_amount = :fine_amount 
+                         WHERE resource_type = :resource_type";
+            } else {
+                // Insert new configuration
+                $query = "INSERT INTO fine_configurations (resource_type, fine_amount) 
+                         VALUES (:resource_type, :fine_amount)";
+            }
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":resource_type", $resource_type);
+            $stmt->bindParam(":fine_amount", $fine_amount);
+            
+            $success = $stmt->execute();
+            
+            // Debug log
+            error_log("Updating fine configuration - Type: $resource_type, Amount: $fine_amount, Success: " . ($success ? 'true' : 'false'));
+            
+            return $success;
+        } catch (Exception $e) {
+            error_log("Update fine configuration error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getFineConfigurations() {
+        try {
+            $query = "SELECT * FROM fine_configurations ORDER BY resource_type";
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Get fine configurations error: " . $e->getMessage());
             return [];
         }
     }

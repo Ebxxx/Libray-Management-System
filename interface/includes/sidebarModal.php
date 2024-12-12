@@ -112,9 +112,12 @@ if (!isset($_SESSION['user_id'])) {
                         <span>Borrowing management</span>
                     </a>
                     <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
-                    <li><a class="dropdown-item text-light" href="borrowings.php">Borrowings</a></li>
+                        <li><a class="dropdown-item text-light" href="borrowings.php">Borrowings</a></li>
                         <li><a class="dropdown-item text-light" href="overdue-management.php">Over due</a></li>
                         <li><a class="dropdown-item text-light" href="payment-history.php">Payment History</a></li>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                        <li><a class="dropdown-item text-light" href="fine-configuration.php">Fine Configuration</a></li>
+                        <?php endif; ?>
                     </ul>
                 </li>
                 <?php 
