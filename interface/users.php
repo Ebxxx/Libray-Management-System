@@ -1,6 +1,7 @@
 <?php
 require_once '../controller/UserController.php';
 require_once '../controller/Session.php';
+require_once '../controller/BorrowingController.php';
 
 Session::start();
 if (!($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff')) {
@@ -210,11 +211,19 @@ $error_message = Session::getFlash('error');
                                 <th>Email</th>
                                 <th>Role</th>
                                 <th>Max Books</th>
+                                <th>Borrowings</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($users as $user): ?>
+                            <?php foreach ($users as $user): 
+                                // Get user's borrowings
+                                $borrowingController = new BorrowingController();
+                                $userBorrowings = $borrowingController->getUserBorrowingHistory($user['user_id']);
+                                $activeBorrowings = array_filter($userBorrowings, function($borrowing) {
+                                    return $borrowing['status'] === 'active';
+                                });
+                            ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($user['user_id']); ?></td>
                                 <td><?php echo htmlspecialchars($user['membership_id']); ?></td>
@@ -224,8 +233,145 @@ $error_message = Session::getFlash('error');
                                 <td><?php echo ucfirst(htmlspecialchars($user['role'])); ?></td>
                                 <td><?php echo htmlspecialchars($user['max_books']); ?></td>
                                 <td>
+                                    <?php 
+                                    $borrowingController = new BorrowingController();
+                                    $userBorrowings = $borrowingController->getUserBorrowingHistory($user['user_id']);
+                                    $activeBorrowings = array_filter($userBorrowings, function($borrowing) {
+                                        return $borrowing['status'] === 'active';
+                                    });
+                                    
+                                    // Show button regardless of active borrowings
+                                    ?>
+                                    <button class="btn btn-sm text-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#borrowingsModal<?php echo $user['user_id']; ?>">
+                                        <i class="bi bi-book"></i> 
+                                        View <?php echo !empty($activeBorrowings) ? '(' . count($activeBorrowings) . ')' : ''; ?>
+                                    </button>
+
+                                    <!-- Borrowings Modal -->
+                                    <div class="modal fade" id="borrowingsModal<?php echo $user['user_id']; ?>" tabindex="-1">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">
+                                                        Borrowing Details for <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <!-- Nav tabs -->
+                                                    <ul class="nav nav-tabs" role="tablist">
+                                                        <li class="nav-item">
+                                                            <a class="nav-link active" data-bs-toggle="tab" href="#active<?php echo $user['user_id']; ?>">
+                                                                Active Borrowings
+                                                            </a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a class="nav-link" data-bs-toggle="tab" href="#history<?php echo $user['user_id']; ?>">
+                                                                Borrowing History
+                                                            </a>
+                                                        </li>
+                                                    </ul>
+
+                                                    <!-- Tab content -->
+                                                    <div class="tab-content mt-3">
+                                                        <!-- Active Borrowings Tab -->
+                                                        <div id="active<?php echo $user['user_id']; ?>" class="tab-pane active">
+                                                            <div class="table-responsive">
+                                                                <table class="table table-striped">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Title</th>
+                                                                            <th>Borrow Date</th>
+                                                                            <th>Due Date</th>
+                                                                            <th>Status</th>
+                                                                            <th>Fine Amount</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        <?php foreach ($activeBorrowings as $borrowing): ?>
+                                                                            <tr>
+                                                                                <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
+                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
+                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
+                                                                                <td>
+                                                                                    <span class="badge <?php 
+                                                                                        echo $borrowing['status'] === 'overdue' ? 'bg-danger' : 
+                                                                                            ($borrowing['status'] === 'active' ? 'bg-warning' : 'bg-success'); 
+                                                                                    ?>">
+                                                                                        <?php echo ucfirst(htmlspecialchars($borrowing['status'])); ?>
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <?php 
+                                                                                    echo $borrowing['fine_amount'] > 0 
+                                                                                        ? '$' . number_format($borrowing['fine_amount'], 2) 
+                                                                                        : '-';
+                                                                                    ?>
+                                                                                </td>
+                                                                            </tr>
+                                                                        <?php endforeach; ?>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Borrowing History Tab -->
+                                                        <div id="history<?php echo $user['user_id']; ?>" class="tab-pane fade">
+                                                            <div class="table-responsive">
+                                                                <table class="table table-striped">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Title</th>
+                                                                            <th>Borrow Date</th>
+                                                                            <th>Due Date</th>
+                                                                            <th>Return Date</th>
+                                                                            <th>Status</th>
+                                                                            <th>Fine Amount</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        <?php foreach ($userBorrowings as $borrowing): ?>
+                                                                            <tr>
+                                                                                <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
+                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
+                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
+                                                                                <td>
+                                                                                    <?php echo $borrowing['return_date'] 
+                                                                                        ? date('M d, Y', strtotime($borrowing['return_date'])) 
+                                                                                        : 'Not returned'; ?>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <span class="badge <?php 
+                                                                                        echo $borrowing['status'] === 'overdue' ? 'bg-danger' : 
+                                                                                            ($borrowing['status'] === 'active' ? 'bg-warning' : 'bg-success'); 
+                                                                                    ?>">
+                                                                                        <?php echo ucfirst(htmlspecialchars($borrowing['status'])); ?>
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <?php 
+                                                                                    echo $borrowing['fine_amount'] > 0 
+                                                                                        ? '$' . number_format($borrowing['fine_amount'], 2) 
+                                                                                        : '-';
+                                                                                    ?>
+                                                                                </td>
+                                                                            </tr>
+                                                                        <?php endforeach; ?>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
                                     <?php if ($_SESSION['role'] === 'admin'): ?>
-                                        <button class="btn btn-sm btn-warning edit-user" 
+                                        <button class="btn btn-sm edit-user text-warning" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#userModal"
                                                 data-user='<?php echo htmlspecialchars(json_encode($user)); ?>'>
@@ -235,7 +381,7 @@ $error_message = Session::getFlash('error');
                                             <form method="POST" class="d-inline delete-user-form">
                                                 <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['user_id']); ?>">
                                                 <input type="hidden" name="delete_user" value="1">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">
+                                                <button type="submit" class="btn btn-sm text-danger" onclick="return confirm('Are you sure you want to delete this user?');">
                                                     <i class="bi bi-trash"></i> Delete
                                                 </button>
                                             </form>

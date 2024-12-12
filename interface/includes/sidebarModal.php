@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id'])) {
     <div class="p-4 d-flex flex-column h-100">
         <!-- Logo and Title Section -->
         <div class="d-flex align-items-center mb-4">
-            <i class="bi bi-book fs-4 text-primary"></i>
+            <!-- <i class="bi bi-book fs-4 text-primary"></i> -->
             <h4 class="text-white ms-2 fw-bold">Library Management</h4>
         </div>
         

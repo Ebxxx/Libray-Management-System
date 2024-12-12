@@ -258,7 +258,7 @@ if (isset($_POST['generate_pdf'])) {
                                         <div class="form-check mb-2 d-inline-block text-start">
                                             <input class="form-check-input" type="radio" name="report_type" id="fullReport" value="full" checked>
                                             <label class="form-check-label" for="fullReport">
-                                                Full Report (Including Statistics)
+                                                Library Resources Report
                                             </label>
                                         </div>
                                         <div class="form-check mb-2 d-inline-block text-start ms-4">
