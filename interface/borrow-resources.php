@@ -17,7 +17,7 @@ $resourceController = new ResourceController();
 // Handle borrowing request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resource_id'])) {
     $result = $borrowingController->borrowResource($_SESSION['user_id'], $_POST['resource_id']);
-    $message = $result ? "Borrowing request submitted successfully! Waiting for staff approval." : "Unable to submit borrowing request. Please try again.";
+    $message = $result ? "Resource borrowed successfully!" : "Unable to borrow resource. Check your borrowing limit or resource availability.";
 }
 
 // Get resource type from GET parameter, default to books

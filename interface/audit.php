@@ -76,9 +76,10 @@ $approvedBorrowings = $borrowingController->getApprovedBorrowings();
                                     <th>Resource</th>
                                     <th>Borrow Date</th>
                                     <th>Due Date</th>
-                                    <th>Return Date</th>
                                     <th>Approved By</th>
                                     <th>Approval Date</th>
+                                    <th>Return by</th>
+                                    <th>Return Date</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -97,14 +98,23 @@ $approvedBorrowings = $borrowingController->getApprovedBorrowings();
                                         <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
                                         <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
                                         <td>
-                                            <?php echo $borrowing['return_date'] ? date('M d, Y', strtotime($borrowing['return_date'])) : '-'; ?>
-                                        </td>
-                                        <td>
                                             <?php echo htmlspecialchars($borrowing['approved_by']); ?>
                                             <br>
                                             <small class="text-muted"><?php echo htmlspecialchars($borrowing['approver_role']); ?></small>
                                         </td>
                                         <td><?php echo date('M d, Y H:i', strtotime($borrowing['approved_at'])); ?></td>
+                                        <td>
+                                            <?php if ($borrowing['returned_by']): ?>
+                                                <?php echo htmlspecialchars($borrowing['returned_by']); ?>
+                                                <br>
+                                                <small class="text-muted"><?php echo htmlspecialchars($borrowing['returner_role']); ?></small>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php echo $borrowing['return_date'] ? date('M d, Y', strtotime($borrowing['return_date'])) : '-'; ?>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

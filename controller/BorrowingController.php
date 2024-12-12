@@ -179,12 +179,14 @@ class BorrowingController {
             $return_query = "UPDATE borrowings 
                              SET return_date = :return_date, 
                                  status = 'returned', 
-                                 fine_amount = :fine_amount 
+                                 fine_amount = :fine_amount,
+                                 returned_by = :staff_id
                              WHERE borrowing_id = :borrowing_id";
             $stmt = $this->conn->prepare($return_query);
             $stmt->bindParam(":return_date", $current_date);
             $stmt->bindParam(":fine_amount", $fine_amount);
             $stmt->bindParam(":borrowing_id", $borrowing_id);
+            $stmt->bindParam(":staff_id", $_SESSION['user_id']);
             $stmt->execute();
     
             // Update resource status back to available
@@ -527,7 +529,6 @@ class BorrowingController {
                         b.due_date,
                         b.return_date,
                         b.status,
-                        b.fine_amount,
                         b.approved_at,
                         u.first_name, 
                         u.last_name, 
@@ -536,11 +537,14 @@ class BorrowingController {
                         lr.title AS resource_title,
                         lr.category AS resource_type,
                         CONCAT(u_staff.first_name, ' ', u_staff.last_name) as approved_by,
-                        u_staff.role as approver_role
+                        u_staff.role as approver_role,
+                        CONCAT(u_returner.first_name, ' ', u_returner.last_name) as returned_by,
+                        u_returner.role as returner_role
                     FROM borrowings b
                     JOIN users u ON b.user_id = u.user_id
                     JOIN library_resources lr ON b.resource_id = lr.resource_id
                     LEFT JOIN users u_staff ON b.approved_by = u_staff.user_id
+                    LEFT JOIN users u_returner ON b.returned_by = u_returner.user_id
                     WHERE b.approved_by IS NOT NULL
                     ORDER BY b.approved_at DESC";
             
