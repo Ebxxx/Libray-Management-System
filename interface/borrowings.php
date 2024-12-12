@@ -106,12 +106,13 @@ $borrowings = $borrowingController->getAllBorrowings();
                                     <th>Borrow Date</th>
                                     <th>Due Date</th>
                                     <th>Status</th>
+                                    <th>Approved By</th>
+                                    <th>Approval Date</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($borrowings as $borrowing): 
-                                    // Use the method from the controller
                                     $overdueInfo = $borrowingController->calculateOverdueStatus($borrowing['due_date']);
                                 ?>
                                     <tr>
@@ -138,6 +139,22 @@ $borrowings = $borrowingController->getAllBorrowings();
                                                 }
                                                 ?>
                                             </span>
+                                        </td>
+                                        <td>
+                                            <?php if ($borrowing['approved_by']): ?>
+                                                <?php echo htmlspecialchars($borrowing['approved_by']); ?>
+                                                <br>
+                                                <small class="text-muted"><?php echo htmlspecialchars($borrowing['approver_role']); ?></small>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($borrowing['approved_at']): ?>
+                                                <?php echo date('M d, Y H:i', strtotime($borrowing['approved_at'])); ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <button class="btn btn-sm btn-success" data-bs-toggle="modal" 

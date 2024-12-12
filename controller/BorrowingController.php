@@ -1,6 +1,7 @@
 <?php
 require_once '../config/Database.php';
 require_once '../controller/Session.php';
+require_once '../controller/ActivityLogController.php';
 
 class BorrowingController {
     private $conn;
@@ -10,80 +11,122 @@ class BorrowingController {
         $this->conn = $database->getConnection();
     }
 
-    public function borrowResource($user_id, $resource_id) {
+    public function borrowResource($userId, $resourceId) {
         try {
-            // Start a transaction
             $this->conn->beginTransaction();
-    
-            // Check if the user has reached their borrowing limit
-            $user_query = "SELECT role, max_books FROM users WHERE user_id = :user_id";
-            $stmt = $this->conn->prepare($user_query);
-            $stmt->bindParam(":user_id", $user_id);
+            
+            // Check if resource is available
+            $stmt = $this->conn->prepare("SELECT status FROM library_resources WHERE resource_id = :resource_id");
+            $stmt->bindParam(":resource_id", $resourceId);
             $stmt->execute();
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-            if (!$user) {
-                throw new Exception("User not found");
+            $resource = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($resource['status'] !== 'available') {
+                $this->conn->rollBack();
+                return false;
             }
-    
-            // Check current borrowed resources
-            $current_borrowings_query = "SELECT COUNT(*) as current_borrows 
-                                          FROM borrowings 
-                                          WHERE user_id = :user_id AND status = 'active'";
-            $stmt = $this->conn->prepare($current_borrowings_query);
-            $stmt->bindParam(":user_id", $user_id);
-            $stmt->execute();
-            $current_borrows = $stmt->fetch(PDO::FETCH_ASSOC)['current_borrows'];
-    
-            if ($current_borrows >= $user['max_books']) {
-                throw new Exception("Borrowing limit reached");
+            
+            // Create pending borrowing request
+            $stmt = $this->conn->prepare("INSERT INTO borrowings (user_id, resource_id, status) 
+                                        VALUES (:user_id, :resource_id, 'pending')");
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->bindParam(":resource_id", $resourceId);
+            
+            if ($stmt->execute()) {
+                // Update resource status to pending
+                $stmt = $this->conn->prepare("UPDATE library_resources 
+                                            SET status = 'pending' 
+                                            WHERE resource_id = :resource_id");
+                $stmt->bindParam(":resource_id", $resourceId);
+                $stmt->execute();
+                
+                $this->conn->commit();
+                return true;
             }
-    
-            // Check resource availability
-            $resource_query = "SELECT status FROM library_resources 
-                               WHERE resource_id = :resource_id AND status = 'available'";
-            $stmt = $this->conn->prepare($resource_query);
-            $stmt->bindParam(":resource_id", $resource_id);
-            $stmt->execute();
-    
-            if ($stmt->rowCount() == 0) {
-                throw new Exception("Resource not available");
-            }
-    
-            // Calculate due date based on user role
-            if ($user['role'] === 'student') {
-                $due_date = date('Y-m-d H:i:s', strtotime('+3 days'));
-            } elseif ($user['role'] === 'faculty') {
-                $due_date = date('Y-m-d H:i:s', strtotime('+30 days'));
-            } else {
-                throw new Exception("Invalid user role");
-            }
-    
-            // Insert borrowing record
-            $borrow_query = "INSERT INTO borrowings (user_id, resource_id, due_date) 
-                             VALUES (:user_id, :resource_id, :due_date)";
-            $stmt = $this->conn->prepare($borrow_query);
-            $stmt->bindParam(":user_id", $user_id);
-            $stmt->bindParam(":resource_id", $resource_id);
-            $stmt->bindParam(":due_date", $due_date);
-            $stmt->execute();
-    
-            // Update resource status to borrowed
-            $update_query = "UPDATE library_resources 
-                             SET status = 'borrowed' 
-                             WHERE resource_id = :resource_id";
-            $stmt = $this->conn->prepare($update_query);
-            $stmt->bindParam(":resource_id", $resource_id);
-            $stmt->execute();
-    
-            // Commit transaction
-            $this->conn->commit();
-    
-            return true;
-        } catch (Exception $e) {
-            // Rollback transaction
+            
             $this->conn->rollBack();
-            error_log("Borrowing error: " . $e->getMessage());
+            return false;
+        } catch(PDOException $e) {
+            $this->conn->rollBack();
+            return false;
+        }
+    }
+
+    public function approveBorrowing($borrowingId, $staffId) {
+        try {
+            $this->conn->beginTransaction();
+            
+            // Get borrowing details with user and resource info
+            $stmt = $this->conn->prepare("
+                SELECT b.*, u.membership_id, u.first_name, u.last_name, lr.title as resource_title 
+                FROM borrowings b
+                JOIN users u ON b.user_id = u.user_id
+                JOIN library_resources lr ON b.resource_id = lr.resource_id
+                WHERE b.borrowing_id = :borrowing_id
+            ");
+            $stmt->bindParam(":borrowing_id", $borrowingId);
+            $stmt->execute();
+            $borrowing = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$borrowing || $borrowing['status'] !== 'pending') {
+                $this->conn->rollBack();
+                return false;
+            }
+            
+            // Set due date (30 days from approval)
+            $dueDate = date('Y-m-d H:i:s', strtotime('+30 days'));
+            
+            // Update borrowing status and add staff approval details
+            $stmt = $this->conn->prepare("UPDATE borrowings 
+                                        SET status = 'active',
+                                            approved_by = :staff_id,
+                                            approved_at = NOW(),
+                                            due_date = :due_date
+                                        WHERE borrowing_id = :borrowing_id");
+            $stmt->bindParam(":staff_id", $staffId);
+            $stmt->bindParam(":due_date", $dueDate);
+            $stmt->bindParam(":borrowing_id", $borrowingId);
+            
+            if ($stmt->execute()) {
+                // Update resource status
+                $stmt = $this->conn->prepare("UPDATE library_resources 
+                                            SET status = 'borrowed' 
+                                            WHERE resource_id = :resource_id");
+                $stmt->bindParam(":resource_id", $borrowing['resource_id']);
+                $stmt->execute();
+                
+                // Log the approval with detailed information
+                $activityLogger = new ActivityLogController();
+                $logMessage = sprintf(
+                    "Approved borrowing request - Resource: %s, Borrower: %s %s (ID: %s), Due Date: %s",
+                    $borrowing['resource_title'],
+                    $borrowing['first_name'],
+                    $borrowing['last_name'],
+                    $borrowing['membership_id'],
+                    $dueDate
+                );
+                
+                $activityLogger->logActivity(
+                    $staffId,
+                    'approve_borrowing',
+                    $logMessage,
+                    [
+                        'borrowing_id' => $borrowingId,
+                        'resource_title' => $borrowing['resource_title'],
+                        'borrower_name' => $borrowing['first_name'] . ' ' . $borrowing['last_name'],
+                        'membership_id' => $borrowing['membership_id'],
+                        'due_date' => $dueDate
+                    ]
+                );
+                
+                $this->conn->commit();
+                return true;
+            }
+            
+            $this->conn->rollBack();
+            return false;
+        } catch(PDOException $e) {
+            $this->conn->rollBack();
             return false;
         }
     }
@@ -180,6 +223,7 @@ class BorrowingController {
                         b.due_date, 
                         b.status,
                         b.fine_amount,
+                        b.approved_at,
                         u.user_id,
                         u.first_name, 
                         u.last_name, 
@@ -187,22 +231,12 @@ class BorrowingController {
                         u.role,
                         lr.title AS resource_title,
                         lr.category AS resource_type,
-                        CASE 
-                            WHEN lr.category = 'book' THEN bk.author
-                            WHEN lr.category = 'periodical' THEN p.volume
-                            WHEN lr.category = 'media' THEN m.media_type
-                        END AS resource_detail,
-                        CASE 
-                            WHEN lr.category = 'book' THEN bk.isbn
-                            WHEN lr.category = 'periodical' THEN p.issn
-                            WHEN lr.category = 'media' THEN m.format
-                        END AS resource_identifier
+                        CONCAT(u_staff.first_name, ' ', u_staff.last_name) as approved_by,
+                        u_staff.role as approver_role
                     FROM borrowings b
                     JOIN users u ON b.user_id = u.user_id
                     JOIN library_resources lr ON b.resource_id = lr.resource_id
-                    LEFT JOIN books bk ON lr.resource_id = bk.resource_id AND lr.category = 'book'
-                    LEFT JOIN periodicals p ON lr.resource_id = p.resource_id AND lr.category = 'periodical'
-                    LEFT JOIN media_resources m ON lr.resource_id = m.resource_id AND lr.category = 'media'
+                    LEFT JOIN users u_staff ON b.approved_by = u_staff.user_id
                     WHERE b.status IN ('active', 'overdue')
                     ORDER BY b.due_date ASC";
             
@@ -214,38 +248,6 @@ class BorrowingController {
             return [];
         }
     }
-
-    // // Borrowing of students and faculty
-    // public function getAllBorrowings() {
-    //     try {
-    //         $conn = (new Database())->getConnection();
-    //         $query = "SELECT 
-    //                     b.borrowing_id, 
-    //                     b.borrow_date, 
-    //                     b.due_date, 
-    //                     b.status,
-    //                     b.fine_amount,
-    //                     u.user_id,
-    //                     u.first_name, 
-    //                     u.last_name, 
-    //                     u.email, 
-    //                     u.role,
-    //                     lr.title AS resource_title,
-    //                     lr.category AS resource_type
-    //                 FROM borrowings b
-    //                 JOIN users u ON b.user_id = u.user_id
-    //                 JOIN library_resources lr ON b.resource_id = lr.resource_id
-    //                 WHERE b.status IN ('active', 'overdue')
-    //                 ORDER BY b.due_date ASC";
-            
-    //         $stmt = $conn->prepare($query);
-    //         $stmt->execute();
-    //         return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    //     } catch (PDOException $e) {
-    //         error_log("Borrowing monitoring error: " . $e->getMessage());
-    //         return [];
-    //     }
-    // }
 
     public function calculateOverdueStatus($dueDate) {
         $now = new DateTime();
@@ -275,35 +277,6 @@ class BorrowingController {
             'class' => 'text-success'
         ];
     }
-
-    // public function calculateOverdueStatus($dueDate) {
-    //     $now = new DateTime();
-    //     $due = new DateTime($dueDate);
-        
-    //     if ($now > $due) {
-    //         $interval = $now->diff($due);
-    //         return [
-    //             'status' => 'Overdue',
-    //             'days_overdue' => $interval->days,
-    //             'class' => 'text-danger'
-    //         ];
-    //     }
-        
-    //     $interval = $due->diff($now);
-    //     if ($interval->days <= 3) {
-    //         return [
-    //             'status' => 'Due Soon',
-    //             'days_remaining' => $interval->days,
-    //             'class' => 'text-warning'
-    //         ];
-    //     }
-        
-    //     return [
-    //         'status' => 'Active',
-    //         'class' => 'text-success'
-    //     ];
-    // }
-    
 
     public function getUserBorrowingHistory($user_id) {
         try {
@@ -484,6 +457,98 @@ class BorrowingController {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             error_log("Get fine configurations error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getPendingBorrowings() {
+        try {
+            $query = "SELECT 
+                        b.borrowing_id,
+                        b.borrow_date,
+                        u.first_name,
+                        u.last_name,
+                        u.membership_id,
+                        u.role as user_role,
+                        lr.title as resource_title,
+                        lr.accession_number,
+                        lr.category as resource_type
+                    FROM borrowings b
+                    JOIN users u ON b.user_id = u.user_id
+                    JOIN library_resources lr ON b.resource_id = lr.resource_id
+                    WHERE b.status = 'pending'
+                    ORDER BY b.borrow_date ASC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get pending borrowings error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getRecentApprovals() {
+        try {
+            $query = "SELECT 
+                        b.borrowing_id,
+                        b.approved_at,
+                        b.due_date,
+                        u_borrower.membership_id,
+                        CONCAT(u_borrower.first_name, ' ', u_borrower.last_name) as borrower_name,
+                        lr.title as resource_title,
+                        lr.accession_number,
+                        CONCAT(u_staff.first_name, ' ', u_staff.last_name) as staff_name,
+                        u_staff.role as staff_role
+                    FROM borrowings b
+                    JOIN users u_borrower ON b.user_id = u_borrower.user_id
+                    JOIN users u_staff ON b.approved_by = u_staff.user_id
+                    JOIN library_resources lr ON b.resource_id = lr.resource_id
+                    WHERE b.status = 'active'
+                    AND b.approved_at IS NOT NULL
+                    ORDER BY b.approved_at DESC
+                    LIMIT 10";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get recent approvals error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Add this new method to get all approved borrowings for audit
+    public function getApprovedBorrowings() {
+        try {
+            $query = "SELECT 
+                        b.borrowing_id, 
+                        b.borrow_date, 
+                        b.due_date,
+                        b.return_date,
+                        b.status,
+                        b.fine_amount,
+                        b.approved_at,
+                        u.first_name, 
+                        u.last_name, 
+                        u.email, 
+                        u.role,
+                        lr.title AS resource_title,
+                        lr.category AS resource_type,
+                        CONCAT(u_staff.first_name, ' ', u_staff.last_name) as approved_by,
+                        u_staff.role as approver_role
+                    FROM borrowings b
+                    JOIN users u ON b.user_id = u.user_id
+                    JOIN library_resources lr ON b.resource_id = lr.resource_id
+                    LEFT JOIN users u_staff ON b.approved_by = u_staff.user_id
+                    WHERE b.approved_by IS NOT NULL
+                    ORDER BY b.approved_at DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get approved borrowings error: " . $e->getMessage());
             return [];
         }
     }

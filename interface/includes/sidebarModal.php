@@ -118,11 +118,22 @@ if (!isset($_SESSION['user_id'])) {
                         <?php if ($_SESSION['role'] === 'admin'): ?>
                         <li><a class="dropdown-item text-light" href="fine-configuration.php">Fine Configuration</a></li>
                         <?php endif; ?>
+                        <?php if ($_SESSION['role'] === 'staff'): ?>
+                        <li><a class="dropdown-item text-light" href="manage-borrowings.php">Pending borrowings</a></li>
+                        <?php endif; ?>
                     </ul>
                 </li>
                 <?php 
                 } 
                 ?>
+                 <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3" href="audit.php">
+                        <i class="bi bi-clipboard-check"></i>
+                        <span>Audit</span>
+                    </a>
+                </li>
+                <?php endif; ?>
 
                 <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
                     <li class="nav-item">
