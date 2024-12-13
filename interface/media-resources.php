@@ -178,18 +178,22 @@ $error_message = Session::getFlash('error');
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-warning edit-media" 
+                                    <button class="btn btn-sm text-warning edit-media" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#mediaModal"
                                             data-media='<?php echo htmlspecialchars(json_encode($media)); ?>'>
                                         <i class="bi bi-pencil"></i> Edit
                                     </button>
-                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this media resource?');">
-                                    <input type="hidden" name="resource_id" value="<?php echo $media['resource_id']; ?>">
-                                    <input type="hidden" name="delete_media" value="1">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i> Delete
+                                    <button class="btn btn-sm text-info print-media"
+                                            onclick="printMedia(<?php echo htmlspecialchars(json_encode($media)); ?>)">
+                                        <i class="bi bi-printer"></i> Print
                                     </button>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this media resource?');">
+                                        <input type="hidden" name="resource_id" value="<?php echo $media['resource_id']; ?>">
+                                        <input type="hidden" name="delete_media" value="1">
+                                        <button type="submit" class="btn btn-sm text-danger">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
@@ -298,6 +302,62 @@ $error_message = Session::getFlash('error');
                 document.getElementById('mediaModalLabel').textContent = 'Add New Media Resource';
             });
         });
+
+        function printMedia(media) {
+            // Create print window content
+            const printContent = `
+                <html>
+                <head>
+                    <title>Media Resource Details - ${media.title}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; }
+                        .media-details { max-width: 800px; margin: 20px auto; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .detail-row { margin-bottom: 15px; }
+                        .label { font-weight: bold; }
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="media-details">
+                        <div class="header">
+                            <h2>Media Resource Details</h2>
+                            <p>Generated on ${new Date().toLocaleDateString()}</p>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Title:</span> ${media.title}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Format:</span> ${media.format}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Runtime:</span> ${media.runtime} min
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Media Type:</span> ${media.media_type}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Accession Number:</span> ${media.accession_number}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Category:</span> ${media.category}
+                        </div>
+                    </div>
+                    <div class="no-print" style="text-align: center; margin-top: 20px;">
+                        <button onclick="window.print()">Print</button>
+                        <button onclick="window.close()">Close</button>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Open new window and write content
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+        }
     </script>
 </body>
 </html>

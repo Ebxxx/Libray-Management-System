@@ -181,18 +181,22 @@ $error_message = Session::getFlash('error');
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-warning edit-periodical" 
+                                    <button class="btn btn-sm text-warning edit-periodical" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#periodicalModal"
                                             data-periodical='<?php echo htmlspecialchars(json_encode($periodical)); ?>'>
                                         <i class="bi bi-pencil"></i> Edit
                                     </button>
-                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this media resource?');">
-                                    <input type="hidden" name="resource_id" value="<?php echo $periodical['resource_id']; ?>">
-                                    <input type="hidden" name="delete_periodical" value="1">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i> Delete
+                                    <button class="btn btn-sm text-info print-periodical"
+                                            onclick="printPeriodical(<?php echo htmlspecialchars(json_encode($periodical)); ?>)">
+                                        <i class="bi bi-printer"></i> Print
                                     </button>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this media resource?');">
+                                        <input type="hidden" name="resource_id" value="<?php echo $periodical['resource_id']; ?>">
+                                        <input type="hidden" name="delete_periodical" value="1">
+                                        <button type="submit" class="btn btn-sm text-danger">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
@@ -289,6 +293,65 @@ $error_message = Session::getFlash('error');
                 }
             });
         });
+
+        function printPeriodical(periodical) {
+            // Create print window content
+            const printContent = `
+                <html>
+                <head>
+                    <title>Periodical Details - ${periodical.title}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; }
+                        .periodical-details { max-width: 800px; margin: 20px auto; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .detail-row { margin-bottom: 15px; }
+                        .label { font-weight: bold; }
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="periodical-details">
+                        <div class="header">
+                            <h2>Periodical Details</h2>
+                            <p>Generated on ${new Date().toLocaleDateString()}</p>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Title:</span> ${periodical.title}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">ISSN:</span> ${periodical.issn}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Volume:</span> ${periodical.volume}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Issue:</span> ${periodical.issue}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Publication Date:</span> ${periodical.publication_date}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Accession Number:</span> ${periodical.accession_number}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Category:</span> ${periodical.category}
+                        </div>
+                    </div>
+                    <div class="no-print" style="text-align: center; margin-top: 20px;">
+                        <button onclick="window.print()">Print</button>
+                        <button onclick="window.close()">Close</button>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Open new window and write content
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+        }
     </script>
 </body>
 </html>

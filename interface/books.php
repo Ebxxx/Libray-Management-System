@@ -176,18 +176,22 @@ $error_message = Session::getFlash('error');
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-warning edit-book" 
+                                    <button class="btn btn-sm text-warning edit-book" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#bookModal"
                                             data-book='<?php echo htmlspecialchars(json_encode($book)); ?>'>
                                         <i class="bi bi-pencil"></i> Edit
                                     </button>
+                                    <button class="btn btn-sm text-info print-book"
+                                            onclick="printBook(<?php echo htmlspecialchars(json_encode($book)); ?>)">
+                                        <i class="bi bi-printer"></i> Print
+                                    </button>
                                     <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this book?');">
                                         <input type="hidden" name="resource_id" value="<?php echo $book['resource_id']; ?>">
                                         <input type="hidden" name="delete_book" value="1">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </button>
+                                        <button type="submit" class="btn btn-sm text-danger">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
@@ -380,6 +384,71 @@ $error_message = Session::getFlash('error');
                 document.getElementById('accession_number').value = ''; // Clear for auto-generation
             });
         });
+
+        function printBook(book) {
+            // Create print window content
+            const printContent = `
+                <html>
+                <head>
+                    <title>Book Details - ${book.title}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; }
+                        .book-details { max-width: 800px; margin: 20px auto; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .detail-row { margin-bottom: 15px; }
+                        .label { font-weight: bold; }
+                        .cover-image { max-width: 200px; margin: 20px auto; display: block; }
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="book-details">
+                        <div class="header">
+                            <h2>Book Details</h2>
+                            <p>Generated on ${new Date().toLocaleDateString()}</p>
+                        </div>
+                       
+                        <div class="detail-row">
+                            <span class="label">Title:</span> ${book.title}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Author:</span> ${book.author}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">ISBN:</span> ${book.isbn}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Publisher:</span> ${book.publisher}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Edition:</span> ${book.edition}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Publication Date:</span> ${book.publication_date}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Accession Number:</span> ${book.accession_number}
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Category:</span> ${book.category}
+                        </div>
+                       
+                    </div>
+                    <div class="no-print" style="text-align: center; margin-top: 20px;">
+                        <button onclick="window.print()">Print</button>
+                        <button onclick="window.close()">Close</button>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Open new window and write content
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+        }
     </script>
 </body>
 </html>
