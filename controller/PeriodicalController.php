@@ -34,11 +34,10 @@ class PeriodicalController {
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
                               (title, accession_number, category, status, cover_image) 
-                              VALUES (:title, :accession_number, :category, 'available', :cover_image)";
+                              VALUES (:title, :accession_number, 'Periodical', 'available', :cover_image)";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
             $resourceStmt->bindParam(":accession_number", $periodicalData['accession_number']);
-            $resourceStmt->bindParam(":category", $periodicalData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 

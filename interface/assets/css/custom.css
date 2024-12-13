@@ -1,4 +1,3 @@
-
 .borrowing-monitoring-container {
     background-color: white;
     border-radius: 8px;
@@ -76,4 +75,26 @@ body {
     padding: 15px;
     border-radius: 5px;
     margin-bottom: 20px;
+}
+
+.btn-warning:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+}
+
+.pending-resource {
+    position: relative;
+}
+
+.pending-resource::after {
+    content: "PENDING";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #ffc107;
+    color: #000;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
 }

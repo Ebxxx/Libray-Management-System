@@ -35,11 +35,10 @@ class MediaResourceController {
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
                             (title, accession_number, category, status, cover_image) 
-                            VALUES (:title, :accession_number, :category, 'available', :cover_image)";
+                            VALUES (:title, :accession_number, 'Media', 'available', :cover_image)";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $mediaData['title']);
             $resourceStmt->bindParam(":accession_number", $mediaData['accession_number']);
-            $resourceStmt->bindParam(":category", $mediaData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 

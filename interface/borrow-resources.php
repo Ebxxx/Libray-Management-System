@@ -26,17 +26,17 @@ $resourceType = isset($_GET['type']) ? $_GET['type'] : 'books';
 // Get available resources based on type
 switch ($resourceType) {
     case 'media':
-        $availableResources = $borrowingController->getAvailableMedia();
+        $availableResources = $borrowingController->getAvailableAndPendingMedia($_SESSION['user_id']);
         $columns = ['title', 'category', 'accession_number', 'media_type', 'runtime', 'format'];
         $defaultIcon = 'bi-film';
         break;
     case 'periodicals':
-        $availableResources = $borrowingController->getAvailablePeriodicals();
+        $availableResources = $borrowingController->getAvailableAndPendingPeriodicals($_SESSION['user_id']);
         $columns = ['title', 'category', 'accession_number', 'publication_date', 'volume', 'issue'];
         $defaultIcon = 'bi-journal';
         break;
     default: // books
-        $availableResources = $borrowingController->getAvailableBooks();
+        $availableResources = $borrowingController->getAvailableAndPendingBooks($_SESSION['user_id']);
         $columns = ['title', 'category', 'author', 'isbn', 'publisher', 'accession_number'];
         $defaultIcon = 'bi-book';
 }
@@ -138,14 +138,20 @@ if (!empty($searchTerm)) {
                                 </div>
                             </div>
                             
-                            <!-- Move form outside of clickable area -->
-                            <div class="card-footer bg-transparent border-0p-3">
-                                <form method="POST" class="d-inline">
-                                    <input type="hidden" name="resource_id" value="<?php echo $resource['resource_id']; ?>">
-                                    <button type="submit" class="btn btn-primary w-100">
-                                        <i class="bi bi-plus-circle"></i> Borrow
+                        <!-- Replace the existing card-footer div with this: -->
+                            <div class="card-footer bg-transparent border-0 p-3">
+                                <?php if (isset($resource['pending']) && $resource['pending']): ?>
+                                    <button class="btn btn-warning w-100" disabled>
+                                        <i class="bi bi-hourglass-split"></i> Pending Approval
                                     </button>
-                                </form>
+                                <?php else: ?>
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="resource_id" value="<?php echo $resource['resource_id']; ?>">
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="bi bi-plus-circle"></i> Request
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

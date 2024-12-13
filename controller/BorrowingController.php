@@ -556,4 +556,82 @@ class BorrowingController {
             return [];
         }
     }
+
+    public function getAvailableAndPendingBooks($userId) {
+        try {
+            $query = "SELECT DISTINCT lr.*, bb.*,
+                      CASE WHEN b.status = 'pending' AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
+                      FROM library_resources lr
+                      LEFT JOIN books bb ON lr.resource_id = bb.resource_id
+                      LEFT JOIN (
+                          SELECT resource_id, status, user_id 
+                          FROM borrowings 
+                          WHERE user_id = :user_id AND status = 'pending'
+                      ) b ON lr.resource_id = b.resource_id
+                      WHERE lr.category = 'book' 
+                      AND (lr.status = 'available' 
+                          OR (b.status = 'pending' AND b.user_id = :user_id))
+                      GROUP BY lr.resource_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get available and pending books error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getAvailableAndPendingMedia($userId) {
+        try {
+            $query = "SELECT DISTINCT lr.*, mr.*,
+                      CASE WHEN b.status = 'pending' AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
+                      FROM library_resources lr
+                      LEFT JOIN media_resources mr ON lr.resource_id = mr.resource_id
+                      LEFT JOIN (
+                          SELECT resource_id, status, user_id 
+                          FROM borrowings 
+                          WHERE user_id = :user_id AND status = 'pending'
+                      ) b ON lr.resource_id = b.resource_id
+                      WHERE lr.category = 'media' 
+                      AND (lr.status = 'available' 
+                          OR (b.status = 'pending' AND b.user_id = :user_id))
+                      GROUP BY lr.resource_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get available and pending media error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getAvailableAndPendingPeriodicals($userId) {
+        try {
+            $query = "SELECT DISTINCT lr.*, p.*,
+                      CASE WHEN b.status = 'pending' AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
+                      FROM library_resources lr
+                      LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
+                      LEFT JOIN (
+                          SELECT resource_id, status, user_id 
+                          FROM borrowings 
+                          WHERE user_id = :user_id AND status = 'pending'
+                      ) b ON lr.resource_id = b.resource_id
+                      WHERE lr.category = 'periodical' 
+                      AND (lr.status = 'available' 
+                          OR (b.status = 'pending' AND b.user_id = :user_id))
+                      GROUP BY lr.resource_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get available and pending periodicals error: " . $e->getMessage());
+            return [];
+        }
+    }
 }

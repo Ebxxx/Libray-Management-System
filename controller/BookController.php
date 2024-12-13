@@ -34,11 +34,10 @@ class BookController {
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
                               (title, accession_number, category, status, cover_image) 
-                              VALUES (:title, :accession_number, :category, 'available', :cover_image)";
+                              VALUES (:title, :accession_number, 'Book', 'available', :cover_image)";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $bookData['title']);
             $resourceStmt->bindParam(":accession_number", $bookData['accession_number']);
-            $resourceStmt->bindParam(":category", $bookData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
