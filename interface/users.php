@@ -72,10 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'last_name' => filter_input(INPUT_POST, 'last_name', FILTER_SANITIZE_STRING),
             'email' => filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL),
             'role' => filter_input(INPUT_POST, 'role', FILTER_SANITIZE_STRING),
+            'max_books' => filter_input(INPUT_POST, 'max_books', FILTER_SANITIZE_NUMBER_INT)
         ];
-
-        // Set max_books based on role
-        $userData['max_books'] = $roleConfig[$userData['role']]['max_books'] ?? 3;
 
         // Validate email
         if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
@@ -440,6 +438,12 @@ $error_message = Session::getFlash('error');
                                         <option value="student">Student</option>
                                     </select>
                                 </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Max Books</label>
+                                    <input type="number" class="form-control" name="max_books" id="max_books" 
+                                           required min="1" max="50">
+                                    <small class="text-muted">Default values: Admin (10), Faculty (5), Staff (4), Student (3)</small>
+                                </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -454,5 +458,36 @@ $error_message = Session::getFlash('error');
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/user-management.js"></script>
+    <script>
+        // Add this to your existing JavaScript that handles the edit user modal
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+
+    // When role changes, update default max_books
+    document.getElementById('role').addEventListener('change', function() {
+        const roleDefaults = {
+            'admin': 10,
+            'faculty': 5,
+            'staff': 4,
+            'student': 3
+        };
+        const maxBooksInput = document.getElementById('max_books');
+        // Only set default if the field is empty or when creating new user
+        if (!document.getElementById('user_id').value || !maxBooksInput.value) {
+            maxBooksInput.value = roleDefaults[this.value] || 3;
+        }
+    });
+
+    // When editing user, populate max_books
+    const editButtons = document.querySelectorAll('.edit-user');
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const userData = JSON.parse(this.dataset.user);
+            // ... existing field population ...
+            document.getElementById('max_books').value = userData.max_books;
+        });
+    });
+});
+    </script>
 </body>
 </html>

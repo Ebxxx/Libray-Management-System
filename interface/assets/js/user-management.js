@@ -45,8 +45,24 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('last_name').value = user.last_name;
             document.getElementById('email').value = user.email;
             document.getElementById('role').value = user.role;
+            document.getElementById('max_books').value = user.max_books;
             document.querySelector('.modal-title').textContent = 'Edit User';
         });
+    });
+
+    // Add role change handler for max_books defaults
+    document.getElementById('role').addEventListener('change', function() {
+        const roleDefaults = {
+            'admin': 10,
+            'faculty': 5,
+            'staff': 4,
+            'student': 3
+        };
+        const maxBooksInput = document.getElementById('max_books');
+        // Only set default if the field is empty or when creating new user
+        if (!document.getElementById('user_id').value || !maxBooksInput.value) {
+            maxBooksInput.value = roleDefaults[this.value] || 3;
+        }
     });
 
     // Confirm delete
