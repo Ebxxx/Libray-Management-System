@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3307
--- Generation Time: Dec 14, 2024 at 11:42 AM
+-- Generation Time: Dec 14, 2024 at 11:32 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -138,12 +138,7 @@ INSERT INTO `activity_logs` (`log_id`, `user_id`, `action_type`, `action_descrip
 (193, 28, 'approve_borrowing', 'Approved borrowing request - Resource: Joestar, Borrower: sdaasd asasd (ID: S20249490), Due Date: 2025-01-13 11:04:50', '::1', '2024-12-14 10:04:50'),
 (194, 28, 'approve_borrowing', 'Approved borrowing request - Resource: The Greatest, Borrower: sdaasd asasd (ID: S20249490), Due Date: 2025-01-13 11:15:53', '::1', '2024-12-14 10:15:53'),
 (195, 28, 'approve_borrowing', 'Approved borrowing request - Resource: The divine comedy, Borrower: John Doe (ID: ), Due Date: 2025-01-13 11:15:54', '::1', '2024-12-14 10:15:54'),
-(196, 28, 'approve_borrowing', 'Approved borrowing request - Resource: The alchemist, Borrower: sdaasd asasd (ID: S20249490), Due Date: 2025-01-13 11:23:00', '::1', '2024-12-14 10:23:00'),
-(197, 10, 'update', 'Account details updated for user: student1', '::1', '2024-12-14 10:36:38'),
-(198, 10, 'update', 'Account details updated for user: student1', '::1', '2024-12-14 10:36:57'),
-(199, 10, 'update', 'Account details updated for user: student1', '::1', '2024-12-14 10:38:48'),
-(200, 10, 'update', 'Account details updated for user: student1', '::1', '2024-12-14 10:39:01'),
-(201, 28, 'approve_borrowing', 'Approved borrowing request - Resource: How to kill a mocking bird, Borrower: sdaasd asasd (ID: S20249490), Due Date: 2025-01-13 11:40:07', '::1', '2024-12-14 10:40:07');
+(196, 28, 'approve_borrowing', 'Approved borrowing request - Resource: The alchemist, Borrower: sdaasd asasd (ID: S20249490), Due Date: 2025-01-13 11:23:00', '::1', '2024-12-14 10:23:00');
 
 -- --------------------------------------------------------
 
@@ -218,9 +213,8 @@ INSERT INTO `borrowings` (`borrowing_id`, `user_id`, `resource_id`, `borrow_date
 (136, 29, 29, '2024-12-13 23:25:07', '2025-01-13 07:05:30', '2024-12-14 07:27:47', 0.00, 'returned', 28, '2024-12-14 14:05:30', 28),
 (137, 29, 38, '2024-12-13 23:25:39', '2022-12-11 23:04:50', NULL, 0.00, 'active', 28, '2024-12-14 18:04:50', NULL),
 (138, 29, 20, '2021-12-13 23:25:41', '2021-01-13 11:15:53', NULL, 0.00, 'active', 28, '2024-12-14 18:15:53', NULL),
-(139, 9, 30, '2024-12-14 14:05:05', '2025-01-13 11:15:54', '2024-12-14 11:39:25', 0.00, 'returned', 28, '2024-12-14 18:15:54', 28),
-(140, 29, 29, '2024-12-14 18:22:54', '2025-01-13 11:23:00', '2024-12-14 11:39:26', 0.00, 'returned', 28, '2024-12-14 18:23:00', 28),
-(141, 29, 31, '2024-12-14 18:39:44', '2025-01-13 11:40:07', NULL, 0.00, 'active', 28, '2024-12-14 18:40:07', NULL);
+(139, 9, 30, '2024-12-14 14:05:05', '2025-01-13 11:15:54', NULL, 0.00, 'active', 28, '2024-12-14 18:15:54', NULL),
+(140, 29, 29, '2024-12-14 18:22:54', '2025-01-13 11:23:00', NULL, 0.00, 'active', 28, '2024-12-14 18:23:00', NULL);
 
 -- --------------------------------------------------------
 
@@ -280,9 +274,9 @@ CREATE TABLE `library_resources` (
 
 INSERT INTO `library_resources` (`resource_id`, `title`, `accession_number`, `category`, `status`, `created_at`, `updated_at`, `cover_image`) VALUES
 (20, 'The Greatest', 'P-2024-003', 'periodical', 'borrowed', '2024-12-02 14:32:07', '2024-12-14 10:15:53', 'uploads/covers/cover_67554b0c79270.png'),
-(29, 'The alchemist', 'B-2024-002', 'book', 'available', '2024-12-08 07:46:23', '2024-12-14 10:39:26', 'uploads/covers/cover_67554ecf566bb.jpg'),
-(30, 'The divine comedy', 'B-2024-004', 'book', 'available', '2024-12-08 07:52:19', '2024-12-14 10:39:25', 'uploads/covers/cover_675552c3812fa.jpg'),
-(31, 'How to kill a mocking bird', 'B-2024-005', 'book', 'borrowed', '2024-12-08 08:04:40', '2024-12-14 10:40:07', 'uploads/covers/cover_67555318caf06.jpg'),
+(29, 'The alchemist', 'B-2024-002', 'book', 'borrowed', '2024-12-08 07:46:23', '2024-12-14 10:23:00', 'uploads/covers/cover_67554ecf566bb.jpg'),
+(30, 'The divine comedy', 'B-2024-004', 'book', 'borrowed', '2024-12-08 07:52:19', '2024-12-14 10:15:54', 'uploads/covers/cover_675552c3812fa.jpg'),
+(31, 'How to kill a mocking bird', 'B-2024-005', 'book', 'available', '2024-12-08 08:04:40', '2024-12-13 02:15:35', 'uploads/covers/cover_67555318caf06.jpg'),
 (32, 'Wow signal', 'R-2024-001', 'media', 'available', '2024-12-08 08:08:04', '2024-12-13 15:25:04', 'uploads/covers/cover_675553e45bf98.jpg'),
 (33, 'The edge of all known', 'R-2024-002', 'media', 'available', '2024-12-08 08:12:17', '2024-12-13 15:22:58', 'uploads/covers/cover_675554e11d962.jpg'),
 (38, 'Joestar', 'P-2024-006', 'periodical', 'borrowed', '2024-12-09 13:05:12', '2024-12-14 10:04:50', 'uploads/covers/cover_6756eb0810e2d.png'),
@@ -355,20 +349,19 @@ CREATE TABLE `users` (
   `role` enum('admin','student','faculty','staff') NOT NULL,
   `max_books` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `borrowing_days_limit` int(11) DEFAULT 7
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`user_id`, `membership_id`, `username`, `password`, `first_name`, `last_name`, `email`, `role`, `max_books`, `created_at`, `updated_at`, `borrowing_days_limit`) VALUES
-(9, NULL, 'user1', '$2y$10$ikFVY6FlstJFUvrG.lL9seZd7QEvwa0EPZHShzYK2ovBONcmGdh9q', 'John', 'Doe', 'user1@gmail.com', 'faculty', 5, '2024-11-23 11:14:11', '2024-12-08 08:15:35', 7),
-(10, NULL, 'admin1', '$2y$10$EOgSJ.NhTX4KtWmPK45aVeF3ylHV5WQCsIw5MDc8Y95vfbBZf0uyi', 'dsad', 'asdasd', 'itsebs758@gmail.com', 'admin', 10, '2024-11-23 11:19:06', '2024-12-06 14:07:40', 7),
-(28, 'S20244337', 'staff1', '$2y$10$zYxXz2B58es5nT/itaiF7Oo8yujpQwYruvgHb99UVP2Jg/7KvswJa', 'ebszar', 'lapaz', 'staff1@gmail.com', 'staff', 4, '2024-12-10 06:54:07', '2024-12-12 14:52:20', 7),
-(29, 'S20249490', 'student1', '$2y$10$SZVcfAfudYUZ1BTcrW0XSuOKwVJVv1uzDw56kQgNF9L49lqiFtXme', 'sdaasd', 'asasd', 'student1@gmail.com', 'student', 3, '2024-12-10 06:54:32', '2024-12-14 10:39:01', 2),
-(30, 'F20248589', 'faculty1', '$2y$10$.6M.jyeMPjv1tsKVpcLkquGhWSeCchnZKTVVA1r00nmoM9m71CPnq', 'dsad', 'asdasd', 'faculty1@gmail.com', 'faculty', 11, '2024-12-10 06:54:59', '2024-12-13 15:06:26', 7);
+INSERT INTO `users` (`user_id`, `membership_id`, `username`, `password`, `first_name`, `last_name`, `email`, `role`, `max_books`, `created_at`, `updated_at`) VALUES
+(9, NULL, 'user1', '$2y$10$ikFVY6FlstJFUvrG.lL9seZd7QEvwa0EPZHShzYK2ovBONcmGdh9q', 'John', 'Doe', 'user1@gmail.com', 'faculty', 5, '2024-11-23 11:14:11', '2024-12-08 08:15:35'),
+(10, NULL, 'admin1', '$2y$10$EOgSJ.NhTX4KtWmPK45aVeF3ylHV5WQCsIw5MDc8Y95vfbBZf0uyi', 'dsad', 'asdasd', 'itsebs758@gmail.com', 'admin', 10, '2024-11-23 11:19:06', '2024-12-06 14:07:40'),
+(28, 'S20244337', 'staff1', '$2y$10$zYxXz2B58es5nT/itaiF7Oo8yujpQwYruvgHb99UVP2Jg/7KvswJa', 'ebszar', 'lapaz', 'staff1@gmail.com', 'staff', 4, '2024-12-10 06:54:07', '2024-12-12 14:52:20'),
+(29, 'S20249490', 'student1', '$2y$10$SZVcfAfudYUZ1BTcrW0XSuOKwVJVv1uzDw56kQgNF9L49lqiFtXme', 'sdaasd', 'asasd', 'student1@gmail.com', 'student', 3, '2024-12-10 06:54:32', '2024-12-13 15:25:32'),
+(30, 'F20248589', 'faculty1', '$2y$10$.6M.jyeMPjv1tsKVpcLkquGhWSeCchnZKTVVA1r00nmoM9m71CPnq', 'dsad', 'asdasd', 'faculty1@gmail.com', 'faculty', 11, '2024-12-10 06:54:59', '2024-12-13 15:06:26');
 
 --
 -- Indexes for dumped tables
@@ -452,7 +445,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `log_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=202;
+  MODIFY `log_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=197;
 
 --
 -- AUTO_INCREMENT for table `books`
@@ -464,7 +457,7 @@ ALTER TABLE `books`
 -- AUTO_INCREMENT for table `borrowings`
 --
 ALTER TABLE `borrowings`
-  MODIFY `borrowing_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=142;
+  MODIFY `borrowing_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=141;
 
 --
 -- AUTO_INCREMENT for table `fine_configurations`

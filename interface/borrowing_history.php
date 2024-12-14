@@ -13,6 +13,12 @@ if (!isset($_SESSION['user_id'])) {
 
 // Get the logged-in user's ID
 $user_id = $_SESSION['user_id'];
+
+// Create an instance of BorrowingController
+$borrowingController = new BorrowingController();
+
+// Get borrowing history
+$borrowingHistory = $borrowingController->displayBorrowingHistory($user_id);
 ?>
 
 <!DOCTYPE html>
@@ -62,82 +68,74 @@ $user_id = $_SESSION['user_id'];
                                 </h2>
                             </div>
                             
-                            <?php
-                            // Function to display borrowing history
-                            function displayBorrowingHistory($user_id) {
-                                // Create an instance of BorrowingController
-                                $borrowingController = new BorrowingController();
-                                
-                                // Fetch borrowing history for the user
-                                $borrowingHistory = $borrowingController->getUserBorrowingHistory($user_id);
-                                
-                                // Check if there are any borrowing records
-                                if (empty($borrowingHistory)) {
-                                    echo '<div class="alert alert-info">No borrowing history found.</div>';
-                                    return;
-                                }
-                                
-                                // Start table to display borrowing history
-                                echo '<div class="table-responsive">';
-                                echo '<table class="table table-striped table-hover">';
-                                echo '<thead class="table-dark">
-                                        <tr>
-                                            <th>Title</th>
-                                            <th>Borrow Date</th>
-                                            <th>Due Date</th>
-                                            <th>Return Date</th>
-                                            <th>Status</th>
-                                            <th>Fine Amount</th>
-                                        </tr>
-                                      </thead>';
-                                echo '<tbody>';
-                                
-                                // Loop through borrowing history and display each record
-                                foreach ($borrowingHistory as $record) {
-                                    echo '<tr>';
-                                    echo '<td>' . htmlspecialchars($record['title']) . '</td>';
-                                    echo '<td>' . date('M d, Y', strtotime($record['borrow_date'])) . '</td>';
-                                    echo '<td>' . date('M d, Y', strtotime($record['due_date'])) . '</td>';
-                                    
-                                    // Handle return date display
-                                    $returnDate = $record['return_date'] 
-                                        ? date('M d, Y', strtotime($record['return_date'])) 
-                                        : 'Not returned';
-                                    echo '<td>' . $returnDate . '</td>';
-                                    
-                                    // Status formatting
-                                    $statusClass = '';
-                                    switch ($record['status']) {
-                                        case 'active':
-                                            $statusClass = 'text-warning';
-                                            break;
-                                        case 'returned':
-                                            $statusClass = 'text-success';
-                                            break;
-                                        case 'overdue':
-                                            $statusClass = 'text-danger';
-                                            break;
-                                    }
-                                    echo '<td><span class="' . $statusClass . '">' . 
-                                         htmlspecialchars(ucfirst($record['status'])) . '</span></td>';
-                                    
-                                    // Fine amount display
-                                    $fineAmount = $record['fine_amount'] > 0 
-                                        ? '$' . number_format($record['fine_amount'], 2) 
-                                        : 'No fine';
-                                    echo '<td>' . $fineAmount . '</td>';
-                                    
-                                    echo '</tr>';
-                                }
-                                
-                                echo '</tbody>';
-                                echo '</table>';
-                                echo '</div>';
-                            }
-
-                            // Call the function to display borrowing history
-                            displayBorrowingHistory($user_id);
-                            ?>
+                            <?php if ($borrowingHistory === false): ?>
+                                <div class="alert alert-danger">An error occurred while retrieving the borrowing history.</div>
+                            <?php elseif (empty($borrowingHistory)): ?>
+                                <div class="alert alert-info">No borrowing history found.</div>
+                            <?php else: ?>
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>Title</th>
+                                                <th>Borrow Date</th>
+                                                <th>Due Date</th>
+                                                <th>Return Date</th>
+                                                <th>Status</th>
+                                                <th>Days Overdue</th>
+                                                <th>Fine Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($borrowingHistory as $record): ?>
+                                                <tr>
+                                                    <td><?php echo htmlspecialchars($record['title']); ?></td>
+                                                    <td><?php echo date('M d, Y', strtotime($record['borrow_date'])); ?></td>
+                                                    <td><?php echo date('M d, Y', strtotime($record['due_date'])); ?></td>
+                                                    <td><?php echo $record['return_date'] 
+                                                        ? date('M d, Y', strtotime($record['return_date'])) 
+                                                        : 'Not returned'; ?></td>
+                                                    <td>
+                                                        <?php
+                                                        $statusBadge = match($record['current_status']) {
+                                                            'active' => 'bg-warning',
+                                                            'returned' => 'bg-success',
+                                                            'overdue' => 'bg-danger',
+                                                            default => 'bg-secondary'
+                                                        };
+                                                        ?>
+                                                        <span class="badge <?php echo $statusBadge; ?>">
+                                                            <?php echo ucfirst($record['current_status']); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($record['days_overdue'] > 0): ?>
+                                                            <span class="text-danger"><?php echo $record['days_overdue']; ?> days</span>
+                                                        <?php else: ?>
+                                                            -
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <?php if ($record['calculated_fine'] > 0): ?>
+                                                            <strong class="text-danger">
+                                                                $<?php echo number_format($record['calculated_fine'], 2); ?>
+                                                            </strong>
+                                                            <?php if ($record['current_status'] === 'overdue'): ?>
+                                                                <br>
+                                                                <small class="text-muted">
+                                                                    Rate: $<?php echo number_format($record['daily_fine_rate'], 2); ?>/day
+                                                                </small>
+                                                            <?php endif; ?>
+                                                        <?php else: ?>
+                                                            No fine
+                                                        <?php endif; ?>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
