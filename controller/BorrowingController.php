@@ -23,7 +23,33 @@ class BorrowingController {
             
             if ($resource['status'] !== 'available') {
                 $this->conn->rollBack();
-                return false;
+                return [
+                    'success' => false,
+                    'message' => 'This resource is not available for borrowing.'
+                ];
+            }
+
+            // Check user's current active borrowings against their limit
+            $stmt = $this->conn->prepare("
+                SELECT 
+                    COUNT(b.borrowing_id) as active_borrowings,
+                    u.max_books
+                FROM users u
+                LEFT JOIN borrowings b ON u.user_id = b.user_id 
+                AND b.status IN ('active', 'overdue', 'pending')
+                WHERE u.user_id = :user_id
+                GROUP BY u.user_id, u.max_books
+            ");
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->execute();
+            $borrowingInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($borrowingInfo['active_borrowings'] >= $borrowingInfo['max_books']) {
+                $this->conn->rollBack();
+                return [
+                    'success' => false,
+                    'message' => 'You have reached your maximum borrowing limit of ' . $borrowingInfo['max_books'] . ' items.'
+                ];
             }
             
             // Create pending borrowing request
@@ -41,14 +67,24 @@ class BorrowingController {
                 $stmt->execute();
                 
                 $this->conn->commit();
-                return true;
+                return [
+                    'success' => true,
+                    'message' => 'Resource borrowing request submitted successfully.'
+                ];
             }
             
             $this->conn->rollBack();
-            return false;
+            return [
+                'success' => false,
+                'message' => 'Failed to submit borrowing request.'
+            ];
         } catch(PDOException $e) {
             $this->conn->rollBack();
-            return false;
+            error_log("Borrow resource error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'An error occurred while processing your request.'
+            ];
         }
     }
 
