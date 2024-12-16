@@ -47,7 +47,15 @@ try {
                     WHEN b.due_date < CURRENT_DATE 
                     THEN DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount 
                     ELSE 0 
-                END as calculated_fine
+                END as calculated_fine,
+                fp.payment_status,
+                fp.amount_paid,
+                fp.cash_received,
+                fp.change_amount,
+                fp.payment_date,
+                proc.first_name as processor_first_name,
+                proc.last_name as processor_last_name,
+                proc.role as processor_role
               FROM borrowings b
               JOIN users u ON b.user_id = u.user_id
               JOIN library_resources lr ON b.resource_id = lr.resource_id
@@ -55,6 +63,8 @@ try {
               LEFT JOIN books bk ON lr.resource_id = bk.resource_id AND lr.category = 'book'
               LEFT JOIN periodicals p ON lr.resource_id = p.resource_id AND lr.category = 'periodical'
               LEFT JOIN media_resources m ON lr.resource_id = m.resource_id AND lr.category = 'media'
+              LEFT JOIN fine_payments fp ON b.borrowing_id = fp.borrowing_id
+              LEFT JOIN users proc ON fp.processed_by = proc.user_id
               WHERE (b.status = 'overdue' OR 
                     (b.status = 'active' AND b.due_date < CURRENT_DATE) OR
                     (b.status = 'returned' AND b.return_date > b.due_date))
@@ -136,7 +146,7 @@ try {
                                     <th>Due Date</th>
                                     <th>Days Overdue</th>
                                     <th>Fine Amount</th>
-                                  
+                                    <th>Status</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -171,7 +181,17 @@ try {
                                             <br>
                                             <small class="text-muted">Rate: $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?>/day</small>
                                         </td>
-                                  
+                                        <td>
+                                            <?php if ($borrowing['payment_status'] === 'paid'): ?>
+                                                <span class="badge text-success">
+                                                    <i class="bi bi-check-circle"></i> Paid
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge text-warning">
+                                                    <i class="bi bi-exclamation-circle"></i> Unpaid
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td>
                                             <button class="btn btn-sm btn-info" data-bs-toggle="modal" 
                                                     data-bs-target="#paymentModal<?php echo $borrowing['borrowing_id']; ?>">
@@ -185,43 +205,80 @@ try {
                                         <div class="modal-dialog">
                                             <div class="modal-content">
                                                 <div class="modal-header">
-                                                    <h5 class="modal-title">Overdue Details</h5>
+                                                    <h5 class="modal-title">Payment Details</h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
                                                 <div class="modal-body">
-                                                    <div class="alert alert-danger">
-                                                        <strong>Overdue by:</strong> <?php echo $borrowing['days_overdue']; ?> days
+                                                    <div class="row mb-3">
+                                                        <div class="col-md-6">
+                                                            <h6>Resource</h6>
+                                                            <p class="mb-1">
+                                                                <?php echo htmlspecialchars($borrowing['resource_title']); ?>
+                                                                <br>
+                                                                <small class="text-muted">
+                                                                    <?php echo htmlspecialchars($borrowing['resource_type']); 
+                                                                    if (!empty($borrowing['resource_detail'])) {
+                                                                        echo ' - ' . htmlspecialchars($borrowing['resource_detail']);
+                                                                    }
+                                                                    ?>
+                                                                </small>
+                                                            </p>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6>Borrower</h6>
+                                                            <p class="mb-1">
+                                                                <?php echo htmlspecialchars($borrowing['first_name'] . ' ' . $borrowing['last_name']); ?>
+                                                                <br>
+                                                                <small class="text-muted"><?php echo htmlspecialchars($borrowing['role']); ?></small>
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    
-                                                    <h6>Borrower Information</h6>
-                                                    <p>
-                                                        <strong>Name:</strong> <?php echo htmlspecialchars($borrowing['first_name'] . ' ' . $borrowing['last_name']); ?><br>
-                                                        <strong>Email:</strong> <?php echo htmlspecialchars($borrowing['email']); ?><br>
-                                                        <strong>Role:</strong> <?php echo htmlspecialchars($borrowing['role']); ?>
-                                                    </p>
 
-                                                    <h6>Resource Details</h6>
-                                                    <p>
-                                                        <strong>Title:</strong> <?php echo htmlspecialchars($borrowing['resource_title']); ?><br>
-                                                        <strong>Type:</strong> <?php echo htmlspecialchars($borrowing['resource_type']); ?><br>
-                                                        <?php if (!empty($borrowing['resource_detail'])): ?>
-                                                            <strong>Additional Info:</strong> <?php echo htmlspecialchars($borrowing['resource_detail']); ?>
-                                                        <?php endif; ?>
-                                                    </p>
+                                                    <div class="row mb-3">
+                                                        <div class="col-md-6">
+                                                            <h6>Due Date</h6>
+                                                            <p class="mb-1"><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></p>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6>Days Overdue</h6>
+                                                            <p class="mb-1 text-danger"><?php echo $borrowing['days_overdue']; ?> days</p>
+                                                        </div>
+                                                    </div>
 
-                                                    <h6>Fine Details</h6>
-                                                    <p>
-                                                        <strong>Current Fine Amount:</strong> 
-                                                        <span class="text-danger">$<?php echo number_format($borrowing['calculated_fine'], 2); ?></span><br>
-                                                        <strong>Daily Fine Rate:</strong> $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?><br>
-                                                        <strong>Days Overdue:</strong> <?php echo $borrowing['days_overdue']; ?> days<br>
-                                                        <?php if ($borrowing['return_date']): ?>
-                                                            <strong>Return Date:</strong> <?php echo date('M d, Y', strtotime($borrowing['return_date'])); ?><br>
-                                                            <strong>Status:</strong> Returned and Processed
-                                                        <?php else: ?>
-                                                            <strong>Status:</strong> Fine continues to accumulate until the resource is returned</small>
-                                                        <?php endif; ?>
-                                                    </p>
+                                                    <div class="card mb-3">
+                                                        <div class="card-body">
+                                                            <h6 class="card-title">Fine Information</h6>
+                                                            <p class="card-text mb-1">
+                                                                <strong>Amount:</strong> 
+                                                                <span class="text-danger">$<?php echo number_format($borrowing['calculated_fine'], 2); ?></span>
+                                                                <br>
+                                                                <small class="text-muted">Daily Rate: $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?></small>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <?php if ($borrowing['payment_status'] === 'paid'): ?>
+                                                        <div class="alert alert-success">
+                                                            <h6 class="alert-heading">Payment Completed</h6>
+                                                            <p class="mb-1">
+                                                                <strong>Amount Paid:</strong> $<?php echo number_format($borrowing['amount_paid'], 2); ?><br>
+                                                                <strong>Cash Received:</strong> $<?php echo number_format($borrowing['cash_received'], 2); ?><br>
+                                                                <strong>Change:</strong> $<?php echo number_format($borrowing['change_amount'], 2); ?><br>
+                                                                <strong>Date:</strong> <?php echo date('M d, Y H:i:s', strtotime($borrowing['payment_date'])); ?><br>
+                                                                <strong>Processed By:</strong> <?php echo htmlspecialchars($borrowing['processor_first_name'] . ' ' . $borrowing['processor_last_name']); ?> 
+                                                                <small>(<?php echo htmlspecialchars($borrowing['processor_role']); ?>)</small>
+                                                            </p>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <div class="alert alert-warning">
+                                                            <h6 class="alert-heading">Payment Pending</h6>
+                                                            <p class="mb-0">
+                                                                <?php echo $borrowing['return_date'] ? 
+                                                                    'Item returned but fine is unpaid.' : 
+                                                                    'Fine continues to accumulate until the resource is returned.'; ?>
+                                                            </p>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

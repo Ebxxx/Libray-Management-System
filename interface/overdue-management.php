@@ -1,3 +1,13 @@
+
+
+
+
+
+
+
+
+
+
 <?php
 require_once '../controller/Session.php';
 require_once '../controller/BorrowingController.php';
@@ -36,13 +46,31 @@ try {
                     WHEN DATEDIFF(CURRENT_DATE, b.due_date) > 0 
                     THEN DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount 
                     ELSE 0 
-                END as calculated_fine
+                END as calculated_fine,
+                (SELECT COUNT(*) FROM fine_payments fp 
+                 WHERE fp.borrowing_id = b.borrowing_id 
+                 AND fp.payment_status = 'paid') as payment_count,
+                (SELECT COALESCE(SUM(amount_paid), 0) FROM fine_payments fp 
+                 WHERE fp.borrowing_id = b.borrowing_id 
+                 AND fp.payment_status = 'paid') as total_paid
               FROM borrowings b
               JOIN users u ON b.user_id = u.user_id
               JOIN library_resources lr ON b.resource_id = lr.resource_id
               JOIN fine_configurations fc ON lr.category = fc.resource_type
               WHERE (b.status = 'overdue' OR 
                     (b.status = 'active' AND b.due_date < CURRENT_DATE))
+              AND (
+                SELECT COALESCE(SUM(amount_paid), 0) 
+                FROM fine_payments fp 
+                WHERE fp.borrowing_id = b.borrowing_id 
+                AND fp.payment_status = 'paid'
+              ) < (
+                CASE 
+                    WHEN DATEDIFF(CURRENT_DATE, b.due_date) > 0 
+                    THEN DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount 
+                    ELSE 0 
+                END
+              )
               ORDER BY b.due_date ASC";
     
     $stmt = $conn->prepare($query);
@@ -59,7 +87,6 @@ try {
     $totalOverdueFines = 0;
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -160,9 +187,12 @@ try {
                                             <small class="text-muted">Rate: $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?>/day</small>
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
+                                            <button class="btn btn-sm btn-warning me-2" data-bs-toggle="modal" 
                                                     data-bs-target="#overdueModal<?php echo $borrowing['borrowing_id']; ?>">
                                                 <i class="bi bi-exclamation-triangle"></i> Details
+                                            </button>
+                                            <button class="btn btn-sm btn-success" onclick="openPayFineModal(<?php echo $borrowing['borrowing_id']; ?>, <?php echo $borrowing['calculated_fine']; ?>)">
+                                                <i class="bi bi-cash"></i> Pay Fine
                                             </button>
                                         </td>
                                     </tr>
@@ -195,8 +225,60 @@ try {
                                                         <strong>Due Date:</strong> <?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?><br>
                                                         <strong>Days Overdue:</strong> <?php echo $borrowing['days_overdue']; ?> days<br>
                                                         <strong>Daily Fine Rate:</strong> $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?><br>
-                                                        <strong>Total Fine Amount:</strong> $<?php echo number_format($borrowing['calculated_fine'], 2); ?>
+                                                        <strong>Total Fine Amount:</strong> $<?php echo number_format($borrowing['calculated_fine'], 2); ?><br>
+                                                        <strong>Amount Paid:</strong> $<?php echo number_format($borrowing['total_paid'], 2); ?><br>
+                                                        <strong>Remaining Balance:</strong> $<?php echo number_format($borrowing['calculated_fine'] - $borrowing['total_paid'], 2); ?>
                                                     </p>
+
+                                                    <?php
+                                                    // Fetch payment history
+                                                    $paymentQuery = "SELECT 
+                                                        fp.payment_id,
+                                                        fp.amount_paid,
+                                                        fp.payment_date,
+                                                        fp.payment_status,
+                                                        fp.payment_notes,
+                                                        CONCAT(u.first_name, ' ', u.last_name) as processed_by_name
+                                                    FROM fine_payments fp
+                                                    LEFT JOIN users u ON fp.processed_by = u.user_id
+                                                    WHERE fp.borrowing_id = :borrowing_id
+                                                    ORDER BY fp.payment_date DESC";
+                                                    
+                                                    $paymentStmt = $conn->prepare($paymentQuery);
+                                                    $paymentStmt->execute([':borrowing_id' => $borrowing['borrowing_id']]);
+                                                    $payments = $paymentStmt->fetchAll(PDO::FETCH_ASSOC);
+                                                    
+                                                    if (!empty($payments)): ?>
+                                                        <h6 class="mt-3">Payment History</h6>
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Date</th>
+                                                                        <th>Amount</th>
+                                                                        <th>Status</th>
+                                                                        <th>Processed By</th>
+                                                                        <th>Notes</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <?php foreach ($payments as $payment): ?>
+                                                                        <tr>
+                                                                            <td><?php echo date('M d, Y H:i', strtotime($payment['payment_date'])); ?></td>
+                                                                            <td>$<?php echo number_format($payment['amount_paid'], 2); ?></td>
+                                                                            <td>
+                                                                                <span class="badge <?php echo $payment['payment_status'] === 'paid' ? 'bg-success' : 'bg-warning'; ?>">
+                                                                                    <?php echo ucfirst($payment['payment_status']); ?>
+                                                                                </span>
+                                                                            </td>
+                                                                            <td><?php echo htmlspecialchars($payment['processed_by_name']); ?></td>
+                                                                            <td><?php echo htmlspecialchars($payment['payment_notes'] ?? ''); ?></td>
+                                                                        </tr>
+                                                                    <?php endforeach; ?>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -205,6 +287,7 @@ try {
                                             </div>
                                         </div>
                                     </div>
+
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
@@ -214,8 +297,82 @@ try {
         </main>
     </div>
 
+    <!-- Pay Fine Modal -->
+    <div class="modal fade" id="payFineModal" tabindex="-1" aria-labelledby="payFineModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="payFineModalLabel">Pay Fine</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="payFineForm" action="process_fine_payment.php" method="POST">
+                        <input type="hidden" name="borrowing_id" id="modal_borrowing_id">
+                        <input type="hidden" name="calculated_fine" id="modal_calculated_fine">
+                        
+                        <div class="mb-3">
+                            <label for="amount_paid" class="form-label">Fine Amount</label>
+                            <input type="number" step="0.01" class="form-control" id="amount_paid" name="amount_paid" readonly>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="cash_received" class="form-label">Cash Received</label>
+                            <input type="number" step="0.01" class="form-control" id="cash_received" name="cash_received" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="change_amount" class="form-label">Change</label>
+                            <input type="number" step="0.01" class="form-control" id="change_amount" readonly>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="payment_notes" class="form-label">Payment Notes</label>
+                            <textarea class="form-control" id="payment_notes" name="payment_notes" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary" id="submitPayment" disabled>Submit Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS and Popper.js -->
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script>
+        document.getElementById('cash_received').addEventListener('input', function() {
+            const fineAmount = parseFloat(document.getElementById('amount_paid').value) || 0;
+            const cashReceived = parseFloat(this.value) || 0;
+            const change = cashReceived - fineAmount;
+            
+            document.getElementById('change_amount').value = change.toFixed(2);
+            
+            // Enable submit button only if enough cash is received
+            document.getElementById('submitPayment').disabled = cashReceived < fineAmount;
+        });
+
+        function openPayFineModal(borrowingId, calculatedFine) {
+            document.getElementById('modal_borrowing_id').value = borrowingId;
+            document.getElementById('modal_calculated_fine').value = calculatedFine;
+            document.getElementById('amount_paid').value = calculatedFine;
+            document.getElementById('cash_received').value = '';
+            document.getElementById('change_amount').value = '';
+            document.getElementById('payment_notes').value = '';
+            document.getElementById('submitPayment').disabled = true;
+            
+            var modal = new bootstrap.Modal(document.getElementById('payFineModal'));
+            modal.show();
+        }
+    </script>
 </body>
 </html>
+
+
+
+
+
+
