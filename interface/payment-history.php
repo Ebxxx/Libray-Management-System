@@ -30,7 +30,11 @@ try {
                 b.due_date, 
                 b.return_date, 
                 b.status,
-                DATEDIFF(CURRENT_DATE, b.due_date) as days_overdue,
+                CASE 
+                    WHEN b.return_date IS NOT NULL 
+                    THEN DATEDIFF(b.return_date, b.due_date)
+                    ELSE DATEDIFF(CURRENT_DATE, b.due_date)
+                END as days_overdue,
                 CASE 
                     WHEN lr.category = 'book' THEN bk.author
                     WHEN lr.category = 'periodical' THEN p.volume
@@ -38,7 +42,9 @@ try {
                 END AS resource_detail,
                 fc.fine_amount as daily_fine_rate,
                 CASE 
-                    WHEN DATEDIFF(CURRENT_DATE, b.due_date) > 0 
+                    WHEN b.return_date IS NOT NULL 
+                    THEN GREATEST(0, DATEDIFF(b.return_date, b.due_date)) * fc.fine_amount
+                    WHEN b.due_date < CURRENT_DATE 
                     THEN DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount 
                     ELSE 0 
                 END as calculated_fine
@@ -50,7 +56,8 @@ try {
               LEFT JOIN periodicals p ON lr.resource_id = p.resource_id AND lr.category = 'periodical'
               LEFT JOIN media_resources m ON lr.resource_id = m.resource_id AND lr.category = 'media'
               WHERE (b.status = 'overdue' OR 
-                    (b.status = 'active' AND b.due_date < CURRENT_DATE))
+                    (b.status = 'active' AND b.due_date < CURRENT_DATE) OR
+                    (b.status = 'returned' AND b.return_date > b.due_date))
               ORDER BY b.due_date ASC";
     
     $stmt = $conn->prepare($query);
@@ -129,7 +136,7 @@ try {
                                     <th>Due Date</th>
                                     <th>Days Overdue</th>
                                     <th>Fine Amount</th>
-                                    <th>Status</th>
+                                  
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -164,9 +171,7 @@ try {
                                             <br>
                                             <small class="text-muted">Rate: $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?>/day</small>
                                         </td>
-                                        <td>
-                                            <span class="badge bg-danger">Overdue</span>
-                                        </td>
+                                  
                                         <td>
                                             <button class="btn btn-sm btn-info" data-bs-toggle="modal" 
                                                     data-bs-target="#paymentModal<?php echo $borrowing['borrowing_id']; ?>">
@@ -210,7 +215,12 @@ try {
                                                         <span class="text-danger">$<?php echo number_format($borrowing['calculated_fine'], 2); ?></span><br>
                                                         <strong>Daily Fine Rate:</strong> $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?><br>
                                                         <strong>Days Overdue:</strong> <?php echo $borrowing['days_overdue']; ?> days<br>
-                                                        <small class="text-muted">Fine continues to accumulate until the resource is returned</small>
+                                                        <?php if ($borrowing['return_date']): ?>
+                                                            <strong>Return Date:</strong> <?php echo date('M d, Y', strtotime($borrowing['return_date'])); ?><br>
+                                                            <strong>Status:</strong> Returned and Processed
+                                                        <?php else: ?>
+                                                            <strong>Status:</strong> Fine continues to accumulate until the resource is returned</small>
+                                                        <?php endif; ?>
                                                     </p>
                                                 </div>
                                                 <div class="modal-footer">
