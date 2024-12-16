@@ -17,17 +17,47 @@ $borrowingController = new BorrowingController();
 // Fetch all borrowings
 $borrowings = $borrowingController->getAllBorrowings();
 
-$overdueResources = array_filter($borrowings, function($borrowing) {
-    return strtotime($borrowing['due_date']) < strtotime('now') && 
-           in_array($borrowing['status'], ['active', 'overdue']);
-});
+try {
+    $conn = (new Database())->getConnection();
+    $query = "SELECT 
+                b.borrowing_id, 
+                u.first_name, 
+                u.last_name, 
+                u.email, 
+                u.role,
+                lr.title AS resource_title,
+                lr.category AS resource_type,
+                b.borrow_date, 
+                b.due_date, 
+                b.status,
+                DATEDIFF(CURRENT_DATE, b.due_date) as days_overdue,
+                fc.fine_amount as daily_fine_rate,
+                CASE 
+                    WHEN DATEDIFF(CURRENT_DATE, b.due_date) > 0 
+                    THEN DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount 
+                    ELSE 0 
+                END as calculated_fine
+              FROM borrowings b
+              JOIN users u ON b.user_id = u.user_id
+              JOIN library_resources lr ON b.resource_id = lr.resource_id
+              JOIN fine_configurations fc ON lr.category = fc.resource_type
+              WHERE (b.status = 'overdue' OR 
+                    (b.status = 'active' AND b.due_date < CURRENT_DATE))
+              ORDER BY b.due_date ASC";
+    
+    $stmt = $conn->prepare($query);
+    $stmt->execute();
+    $overdueResources = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Calculate total overdue fines
-$totalOverdueFines = array_reduce($overdueResources, function($carry, $borrowing) {
-    // Calculate fine (currently set at $1 per day overdue)
-    $overduedays = ceil((strtotime('now') - strtotime($borrowing['due_date'])) / (60 * 60 * 24));
-    return $carry + ($overduedays * 1);
-}, 0);
+    // Calculate total fines
+    $totalOverdueFines = array_reduce($overdueResources, function($carry, $borrowing) {
+        return $carry + $borrowing['calculated_fine'];
+    }, 0);
+} catch (PDOException $e) {
+    error_log("Overdue management error: " . $e->getMessage());
+    $overdueResources = [];
+    $totalOverdueFines = 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -121,11 +151,13 @@ $totalOverdueFines = array_reduce($overdueResources, function($carry, $borrowing
                                         <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
                                         <td>
                                         <span class="text-danger fw-bold">
-                                                <?php echo $overduedays; ?> days
+                                                <?php echo $borrowing['days_overdue']; ?> days
                                             </span>
                                         </td>
                                         <td>
-                                            <strong class="text-success">$<?php echo number_format($fineAmount, 2); ?></strong>
+                                            <strong class="text-success">$<?php echo number_format($borrowing['calculated_fine'], 2); ?></strong>
+                                            <br>
+                                            <small class="text-muted">Rate: $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?>/day</small>
                                         </td>
                                         <td>
                                             <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
@@ -161,8 +193,9 @@ $totalOverdueFines = array_reduce($overdueResources, function($carry, $borrowing
                                                     <p>
                                                         <strong>Borrow Date:</strong> <?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?><br>
                                                         <strong>Due Date:</strong> <?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?><br>
-                                                        <strong>Days Overdue:</strong> <?php echo $overduedays; ?> days<br>
-                                                        <strong>Fine Amount:</strong> $<?php echo number_format($fineAmount, 2); ?>
+                                                        <strong>Days Overdue:</strong> <?php echo $borrowing['days_overdue']; ?> days<br>
+                                                        <strong>Daily Fine Rate:</strong> $<?php echo number_format($borrowing['daily_fine_rate'], 2); ?><br>
+                                                        <strong>Total Fine Amount:</strong> $<?php echo number_format($borrowing['calculated_fine'], 2); ?>
                                                     </p>
                                                 </div>
                                                 <div class="modal-footer">

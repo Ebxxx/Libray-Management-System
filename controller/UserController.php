@@ -100,8 +100,8 @@ class UserController {
             $data['membership_id'] = $this->generateMembershipId($data['role']);
     
             // Insert the new user
-            $query = "INSERT INTO users (membership_id, username, password, first_name, last_name, email, role, max_books) 
-                      VALUES (:membership_id, :username, :password, :first_name, :last_name, :email, :role, :max_books)";
+            $query = "INSERT INTO users (membership_id, username, password, first_name, last_name, email, role, max_books, borrowing_days_limit) 
+                      VALUES (:membership_id, :username, :password, :first_name, :last_name, :email, :role, :max_books, :borrowing_days_limit)";
             $stmt = $this->conn->prepare($query);
     
             // Bind parameters
@@ -113,6 +113,7 @@ class UserController {
             $stmt->bindParam(":email", $data['email']);
             $stmt->bindParam(":role", $data['role']);
             $stmt->bindParam(":max_books", $data['max_books']);
+            $stmt->bindParam(":borrowing_days_limit", $data['borrowing_days_limit']);
     
             return $stmt->execute();
         } catch (PDOException $e) {
@@ -123,12 +124,14 @@ class UserController {
 
     public function getUsers() {
         try {
-            $query = "SELECT user_id, membership_id, username, first_name, last_name, email, role, max_books 
-                     FROM users ORDER BY user_id DESC";
+            $query = "SELECT user_id, membership_id, username, first_name, last_name, 
+                             email, role, max_books, borrowing_days_limit 
+                      FROM users 
+                      ORDER BY user_id DESC";
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch(PDOException $e) {
+        } catch (PDOException $e) {
             error_log("Get users error: " . $e->getMessage());
             return [];
         }
@@ -150,68 +153,29 @@ class UserController {
 
     public function updateUser($userId, $data) {
         try {
-            // Check if username already exists for other users
-            $stmt = $this->conn->prepare("SELECT username FROM users WHERE username = :username AND user_id != :user_id");
-            $stmt->bindParam(":username", $data['username']);
-            $stmt->bindParam(":user_id", $userId);
-            $stmt->execute();
-            
-            if ($stmt->rowCount() > 0) {
-                error_log("Username already exists: " . $data['username']);
-                return false;
-            }
-
-            // Check if email already exists for other users
-            $stmt = $this->conn->prepare("SELECT email FROM users WHERE email = :email AND user_id != :user_id");
-            $stmt->bindParam(":email", $data['email']);
-            $stmt->bindParam(":user_id", $userId);
-            $stmt->execute();
-            
-            if ($stmt->rowCount() > 0) {
-                error_log("Email already exists: " . $data['email']);
-                return false;
-            }
-
-            // Start building the update query
             $query = "UPDATE users SET 
                      username = :username,
                      first_name = :first_name,
                      last_name = :last_name,
                      email = :email,
                      role = :role,
-                     max_books = :max_books";
-            
-            // Only include password in update if it's provided
-            if (!empty($data['password'])) {
-                $query .= ", password = :password";
-            }
-            
-            $query .= " WHERE user_id = :user_id";
-            
+                     max_books = :max_books,
+                     borrowing_days_limit = :borrowing_days_limit,
+                     updated_at = CURRENT_TIMESTAMP
+                     WHERE user_id = :user_id";
+
             $stmt = $this->conn->prepare($query);
             
-            // Bind parameters
             $stmt->bindParam(":username", $data['username']);
             $stmt->bindParam(":first_name", $data['first_name']);
             $stmt->bindParam(":last_name", $data['last_name']);
             $stmt->bindParam(":email", $data['email']);
             $stmt->bindParam(":role", $data['role']);
             $stmt->bindParam(":max_books", $data['max_books']);
+            $stmt->bindParam(":borrowing_days_limit", $data['borrowing_days_limit']);
             $stmt->bindParam(":user_id", $userId);
-            
-            if (!empty($data['password'])) {
-                $stmt->bindParam(":password", $data['password']); // Password should already be hashed
-            }
-            
+
             if ($stmt->execute()) {
-                // Log the update activity
-                $activityLogger = new ActivityLogController();
-                $activityLogger->logUserUpdate(
-                    $_SESSION['user_id'],
-                    $userId,
-                    'account details updated'
-                );
-                
                 return true;
             }
             return false;

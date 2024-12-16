@@ -72,8 +72,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'last_name' => filter_input(INPUT_POST, 'last_name', FILTER_SANITIZE_STRING),
             'email' => filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL),
             'role' => filter_input(INPUT_POST, 'role', FILTER_SANITIZE_STRING),
-            'max_books' => filter_input(INPUT_POST, 'max_books', FILTER_SANITIZE_NUMBER_INT)
+            'max_books' => filter_input(INPUT_POST, 'max_books', FILTER_SANITIZE_NUMBER_INT),
+            'borrowing_days_limit' => filter_input(INPUT_POST, 'borrowing_days_limit', FILTER_SANITIZE_NUMBER_INT) ?? 7
         ];
+
+        // Validate borrowing_days_limit
+        if (!is_numeric($userData['borrowing_days_limit']) || $userData['borrowing_days_limit'] < 1) {
+            $userData['borrowing_days_limit'] = 7; // Set default if invalid
+        }
 
         // Validate email
         if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
@@ -209,6 +215,7 @@ $error_message = Session::getFlash('error');
                                 <th>Email</th>
                                 <th>Role</th>
                                 <th>Max Books</th>
+                                <th>Borrowing Days</th>
                                 <th>Borrowings</th>
                                 <th>Actions</th>
                             </tr>
@@ -230,6 +237,7 @@ $error_message = Session::getFlash('error');
                                 <td><?php echo htmlspecialchars($user['email']); ?></td>
                                 <td><?php echo ucfirst(htmlspecialchars($user['role'])); ?></td>
                                 <td><?php echo htmlspecialchars($user['max_books']); ?></td>
+                                <td><?php echo htmlspecialchars($user['borrowing_days_limit']); ?> days</td>
                                 <td>
                                     <?php 
                                     $borrowingController = new BorrowingController();
@@ -444,6 +452,18 @@ $error_message = Session::getFlash('error');
                                            required min="1" max="50">
                                     <small class="text-muted">Default values: Admin (10), Faculty (5), Staff (4), Student (3)</small>
                                 </div>
+                                <div class="mb-3">
+                                    <label for="borrowing_days_limit" class="form-label">Borrowing Days Limit</label>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="borrowing_days_limit" 
+                                           name="borrowing_days_limit" 
+                                           min="1" 
+                                           max="30" 
+                                           value="7"
+                                           required>
+                                    <div class="form-text">Maximum number of days a user can borrow resources</div>
+                                </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -483,8 +503,9 @@ document.addEventListener('DOMContentLoaded', function() {
     editButtons.forEach(button => {
         button.addEventListener('click', function() {
             const userData = JSON.parse(this.dataset.user);
-            // ... existing field population ...
             document.getElementById('max_books').value = userData.max_books;
+            document.getElementById('borrowing_days_limit').value = 
+                userData.borrowing_days_limit || 7; // Default to 7 if not set
         });
     });
 });

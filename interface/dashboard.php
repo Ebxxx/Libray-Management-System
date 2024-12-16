@@ -110,7 +110,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
             </div>
 
             <!-- Replace both Top Choices and Most Borrowed Resources sections with this include -->
-            <?php include '../includes/most_borrowed_resources.php'; ?>
+            <?php include 'includes/most_borrowed_resources.php'; ?>
 
             <!-- Chart Section (Previously in chart.php) -->
             <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
