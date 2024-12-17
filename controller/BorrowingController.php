@@ -439,24 +439,25 @@ class BorrowingController {
             return [];
         }
     }
-    // Overdue borrowings for reporting
     public function getOverdueBorrowings() {
         try {
             $query = "SELECT 
                         b.borrowing_id, 
                         b.borrow_date, 
                         b.due_date, 
-                        b.fine_amount,
                         u.first_name, 
                         u.last_name, 
                         u.email, 
                         u.role,
                         lr.title AS resource_title,
                         lr.category AS resource_type,
-                        DATEDIFF(CURRENT_DATE, b.due_date) as days_overdue
+                        DATEDIFF(CURRENT_DATE, b.due_date) as days_overdue,
+                        fc.fine_amount as daily_fine_rate,
+                        DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount as fine_amount
                     FROM borrowings b
                     JOIN users u ON b.user_id = u.user_id
                     JOIN library_resources lr ON b.resource_id = lr.resource_id
+                    JOIN fine_configurations fc ON lr.category = fc.resource_type
                     WHERE b.status = 'overdue' 
                         OR (b.status = 'active' AND b.due_date < CURRENT_DATE)
                     ORDER BY b.due_date ASC";

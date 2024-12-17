@@ -153,6 +153,7 @@ function generatePDF($borrowings, $resourceStats, $totalBooks, $totalPeriodicals
             $pdf->Cell(30, 8, date('Y-m-d', strtotime($borrowing['due_date'])), 1, 0, 'C');
             $pdf->Cell(30, 8, $borrowing['days_overdue'], 1, 0, 'C');
             $pdf->Cell(30, 8, '$' . number_format($borrowing['fine_amount'], 2), 1, 1, 'C');
+            
         }
 
         // Add total fines
@@ -229,7 +230,6 @@ if (isset($_POST['generate_pdf'])) {
     exit();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -243,7 +243,7 @@ if (isset($_POST['generate_pdf'])) {
     <div class="d-flex">
         <!-- Include Sidebar -->
         <?php include 'includes/sidebarModal.php'; ?>
-
+        
         <div class="flex-grow-1 content">
             <div class="container-fluid mt-4">
                 <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
