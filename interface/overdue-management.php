@@ -299,75 +299,159 @@ try {
 
     <!-- Pay Fine Modal -->
     <div class="modal fade" id="payFineModal" tabindex="-1" aria-labelledby="payFineModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="payFineModalLabel">Pay Fine</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="payFineForm" action="process_fine_payment.php" method="POST">
-                        <input type="hidden" name="borrowing_id" id="modal_borrowing_id">
-                        <input type="hidden" name="calculated_fine" id="modal_calculated_fine">
-                        
-                        <div class="mb-3">
-                            <label for="amount_paid" class="form-label">Fine Amount</label>
-                            <input type="number" step="0.01" class="form-control" id="amount_paid" name="amount_paid" readonly>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="cash_received" class="form-label">Cash Received</label>
-                            <input type="number" step="0.01" class="form-control" id="cash_received" name="cash_received" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="change_amount" class="form-label">Change</label>
-                            <input type="number" step="0.01" class="form-control" id="change_amount" readonly>
-                        </div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="payFineModalLabel">Pay Fine</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="payFineForm" action="process_fine_payment.php" method="POST">
+                     <input type="hidden" name="borrowing_id" id="modal_borrowing_id">
+                    <input type="hidden" name="calculated_fine" id="modal_calculated_fine">
+                    
+                    <div class="mb-3">
+                        <label for="amount_paid" class="form-label">Fine Amount</label>
+                        <input type="number" step="0.01" class="form-control" id="amount_paid" name="amount_paid" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="cash_received" class="form-label">Cash Received</label>
+                        <input type="number" step="0.01" class="form-control" id="cash_received" name="cash_received" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="change_amount" class="form-label">Change</label>
+                        <input type="number" step="0.01" class="form-control" id="change_amount" readonly>
+                    </div>
 
-                        <div class="mb-3">
-                            <label for="payment_notes" class="form-label">Payment Notes</label>
-                            <textarea class="form-control" id="payment_notes" name="payment_notes" rows="3"></textarea>
-                        </div>
-                        
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary" id="submitPayment" disabled>Submit Payment</button>
-                        </div>
-                    </form>
-                </div>
+                    <div class="mb-3">
+                        <label for="payment_notes" class="form-label">Payment Notes</label>
+                        <textarea class="form-control" id="payment_notes" name="payment_notes" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary" id="submitPayment" disabled>Submit Payment</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Bootstrap JS and Popper.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
-    <script>
-        document.getElementById('cash_received').addEventListener('input', function() {
-            const fineAmount = parseFloat(document.getElementById('amount_paid').value) || 0;
-            const cashReceived = parseFloat(this.value) || 0;
-            const change = cashReceived - fineAmount;
-            
-            document.getElementById('change_amount').value = change.toFixed(2);
-            
-            // Enable submit button only if enough cash is received
-            document.getElementById('submitPayment').disabled = cashReceived < fineAmount;
-        });
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
 
-        function openPayFineModal(borrowingId, calculatedFine) {
-            document.getElementById('modal_borrowing_id').value = borrowingId;
-            document.getElementById('modal_calculated_fine').value = calculatedFine;
-            document.getElementById('amount_paid').value = calculatedFine;
-            document.getElementById('cash_received').value = '';
-            document.getElementById('change_amount').value = '';
-            document.getElementById('payment_notes').value = '';
-            document.getElementById('submitPayment').disabled = true;
-            
-            var modal = new bootstrap.Modal(document.getElementById('payFineModal'));
-            modal.show();
+<script>
+ // Ensure this is added before other scripts
+document.addEventListener('DOMContentLoaded', function() {
+    const cashReceivedInput = document.getElementById('cash_received');
+    const fineAmountInput = document.getElementById('amount_paid');
+    const changeAmountInput = document.getElementById('change_amount');
+    const submitPaymentButton = document.getElementById('submitPayment');
+    const payFineForm = document.getElementById('payFineForm');
+
+    // Input validation and change calculation
+    cashReceivedInput.addEventListener('input', function() {
+        const fineAmount = parseFloat(fineAmountInput.value) || 0;
+        const cashReceived = parseFloat(this.value) || 0;
+        
+        // Calculate change
+        const change = cashReceived - fineAmount;
+        changeAmountInput.value = change.toFixed(2);
+        
+        // Enable/disable submit button based on payment amount
+        submitPaymentButton.disabled = cashReceived < fineAmount;
+    });
+
+    // Modal opening function - now accepts borrowing ID and fine amount
+    window.openPayFineModal = function(borrowingId, calculatedFine) {
+        document.getElementById('modal_borrowing_id').value = borrowingId;
+        document.getElementById('modal_calculated_fine').value = calculatedFine;
+        fineAmountInput.value = calculatedFine;
+        cashReceivedInput.value = '';
+        changeAmountInput.value = '';
+        document.getElementById('payment_notes').value = '';
+        submitPaymentButton.disabled = true;
+        
+        var modal = new bootstrap.Modal(document.getElementById('payFineModal'));
+        modal.show();
+    };
+
+    // Form submission handler
+    payFineForm.addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent default form submission
+
+        const fineAmount = parseFloat(fineAmountInput.value);
+        const cashReceived = parseFloat(cashReceivedInput.value);
+
+        // Additional validation
+        if (cashReceived < fineAmount) {
+            alert('Cash received must be greater than or equal to the fine amount.');
+            return;
         }
-    </script>
+
+        // Print receipt
+        printReceipt();
+
+        // Here you might want to submit the form via AJAX or allow standard form submission
+        this.submit();
+    });
+
+    function printReceipt() {
+        const fineAmount = document.getElementById('amount_paid').value;
+        const cashReceived = document.getElementById('cash_received').value;
+        const change = document.getElementById('change_amount').value;
+        const paymentNotes = document.getElementById('payment_notes').value;
+
+        const receiptHTML = `
+            <style>
+                /* ... (previous receipt styles remain the same) ... */
+            </style>
+
+            <div class="receipt-header">
+                <h2>Payment Receipt</h2>
+                <p>Date: ${new Date().toLocaleDateString()}</p>
+                <p>Time: ${new Date().toLocaleTimeString()}</p>
+            </div>
+
+            <div class="receipt-body">
+                <table>
+                    <tr>
+                        <th>Description</th>
+                        <th>Amount</th>
+                    </tr>
+                    <tr>
+                        <td>Fine Payment</td>
+                        <td>$${fineAmount}</td>
+                    </tr>
+                    <tr>
+                        <td>Cash Received</td>
+                        <td>$${cashReceived}</td>
+                    </tr>
+                    <tr>
+                        <td>Change</td>
+                        <td>$${change}</td>
+                    </tr>
+                </table>
+                <p>Payment Notes: ${paymentNotes}</p>
+            </div>
+
+            <div class="receipt-footer">
+                <p>Thank you for your payment!</p>
+            </div>
+        `;
+
+        const printWindow = window.open('', 'print');
+        printWindow.document.write(receiptHTML);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+    }
+});
+</script>
 </body>
 </html>
 
