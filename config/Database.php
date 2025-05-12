@@ -1,8 +1,8 @@
 <?php
 class Database {
     private $host = "localhost";
-    private $port = "3307";
-    private $db_name = "library_management";
+    private $port = "3306";
+    private $db_name = "library management data";
     private $username = "root";
     private $password = "";
     private $conn;
