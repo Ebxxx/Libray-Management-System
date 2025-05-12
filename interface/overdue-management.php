@@ -1,13 +1,3 @@
-
-
-
-
-
-
-
-
-
-
 <?php
 require_once '../controller/Session.php';
 require_once '../controller/BorrowingController.php';
@@ -158,11 +148,7 @@ try {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($overdueResources as $borrowing): 
-                                    // Calculate days overdue and fine
-                                    $overduedays = ceil((strtotime('now') - strtotime($borrowing['due_date'])) / (60 * 60 * 24));
-                                    $fineAmount = $overduedays * 1; // $1 per day overdue
-                                ?>
+                                <?php foreach ($overdueResources as $borrowing): ?>
                                     <tr>
                                         <td>
                                             <strong><?php echo htmlspecialchars($borrowing['first_name'] . ' ' . $borrowing['last_name']); ?></strong>
