@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="w-full min-h-screen flex">
         <!-- Left side with illustration -->
         <div class="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 overflow-hidden" 
-             style="background-image: url('../uploads/images/7a731ad3cc969be40ba7ae6417c7aa85.jpg'); 
+             style="background-image: url('../uploads/images/library-illustration.jpg'); 
                     background-size: cover; 
                     background-position: center;
                     background-repeat: no-repeat;">
