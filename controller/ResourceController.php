@@ -168,6 +168,32 @@ class ResourceController {
 
     public function deleteResource($resource_id) {
         try {
+            // Check if resource is currently borrowed
+            $borrowQuery = "SELECT COUNT(*) as borrow_count 
+                           FROM borrowings 
+                           WHERE resource_id = :resource_id 
+                           AND status = 'active'";
+            $borrowStmt = $this->conn->prepare($borrowQuery);
+            $borrowStmt->bindParam(":resource_id", $resource_id);
+            $borrowStmt->execute();
+            $borrowResult = $borrowStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($borrowResult['borrow_count'] > 0) {
+                throw new Exception("Cannot delete: Resource is currently borrowed");
+            }
+
+            // Check current status
+            $statusQuery = "SELECT status FROM library_resources WHERE resource_id = :resource_id";
+            $statusStmt = $this->conn->prepare($statusQuery);
+            $statusStmt->bindParam(":resource_id", $resource_id);
+            $statusStmt->execute();
+            $statusResult = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+            $currentStatus = $statusResult['status'];
+            if (!is_null($currentStatus) && $currentStatus !== 'available') {
+                throw new Exception("Cannot delete: Resource status must be 'available' or NULL");
+            }
+
             $this->conn->beginTransaction();
 
             // Delete from books table first
@@ -185,8 +211,11 @@ class ResourceController {
             $this->conn->commit();
             return true;
         } catch(PDOException $e) {
-            $this->conn->rollBack();
-            return false;
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log("Delete resource error: " . $e->getMessage());
+            throw $e;
         }
     }
 
