@@ -39,36 +39,56 @@ class UserController {
 
     public function login($username, $password) {
         try {
+            // Debug connection
+            if (!$this->conn) {
+                error_log("Database connection failed");
+                return false;
+            }
+
+            // Query the users table using PDO
             $query = "SELECT user_id, username, password, role, first_name, last_name 
-                      FROM users WHERE username = :username";
+                     FROM users 
+                     WHERE username = :username 
+                     LIMIT 1";
+            
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":username", $username);
             $stmt->execute();
-    
-            if ($stmt->rowCount() > 0) {
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Debug query results
+            error_log("Login attempt for username: " . $username);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Query result: " . print_r($user, true));
+            
+            // Check if user exists and verify password (plain text comparison)
+            if ($user && $password === $user['password']) {
+                Session::start();
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['full_name'] = $user['first_name'] . ' ' . $user['last_name'];
                 
-                // Use password_verify to compare plain-text password with hashed password
-                if (password_verify($password, $row['password'])) {
-                    Session::start();
-                    $_SESSION['user_id'] = $row['user_id'];
-                    $_SESSION['username'] = $row['username'];
-                    $_SESSION['role'] = $row['role'];
-                    $_SESSION['full_name'] = $row['first_name'] . ' ' . $row['last_name'];
-                    
-                    // Log the login activity
-                    $activityLogger = new ActivityLogController();
-                    $activityLogger->logActivity(
-                        $row['user_id'],
-                        'login',
-                        'User logged in successfully'
-                    );
-                    
-                    return true;
-                }
+                // Log the login activity
+                $activityLogger = new ActivityLogController();
+                $activityLogger->logActivity(
+                    $user['user_id'],
+                    'login',
+                    'User logged in successfully'
+                );
+                
+                error_log("Login successful for user: " . $username);
+                return true;
+            }
+            
+            // Log failed login attempt
+            error_log("Login failed for username: " . $username);
+            if (!$user) {
+                error_log("User not found in database");
+            } else {
+                error_log("Password verification failed");
             }
             return false;
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             error_log("Login error: " . $e->getMessage());
             return false;
         }
