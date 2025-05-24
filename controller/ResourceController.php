@@ -13,10 +13,24 @@ class ResourceController {
         try {
             $this->conn->beginTransaction();
 
+            // Validate category
+            $validCategories = ['fiction', 'non-fiction', 'reference', 'academic'];
+            $category = strtolower($data['category']);
+            if (!in_array($category, $validCategories)) {
+                throw new Exception("Invalid category. Must be one of: " . implode(', ', $validCategories));
+            }
+
+            // Validate status
+            $validStatuses = ['available', 'unavailable', 'borrowed'];
+            $status = strtolower($data['status'] ?? 'available');
+            if (!in_array($status, $validStatuses)) {
+                throw new Exception("Invalid status. Must be one of: " . implode(', ', $validStatuses));
+            }
+
             // Handle file upload
             $cover_image = null;
             if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
-                $upload_dir = dirname(__DIR__) . '../uploads/covers/';
+                $upload_dir = dirname(__DIR__) . '/uploads/covers/';
                 
                 // Create directory if it doesn't exist
                 if (!file_exists($upload_dir)) {
@@ -35,18 +49,18 @@ class ResourceController {
 
             // Insert into library_resources with cover_image
             $query = "INSERT INTO library_resources (title, accession_number, category, status, cover_image) 
-                     VALUES (:title, :accession_number, :category, :status, :cover_image)";
+                     VALUES (:title, :accession_number, :category, :status, :cover_image) 
+                     RETURNING resource_id";
             
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":title", $data['title']);
             $stmt->bindParam(":accession_number", $data['accession_number']);
-            $stmt->bindParam(":category", $data['category']);
-            $status = 'available';
+            $stmt->bindParam(":category", $category);
             $stmt->bindParam(":status", $status);
             $stmt->bindParam(":cover_image", $cover_image);
             $stmt->execute();
             
-            $resource_id = $this->conn->lastInsertId();
+            $resource_id = $stmt->fetch(PDO::FETCH_ASSOC)['resource_id'];
 
             // Insert into specific resource type table
             if ($type === 'book') {
@@ -67,6 +81,7 @@ class ResourceController {
             return true;
         } catch(PDOException $e) {
             $this->conn->rollBack();
+            error_log("Error in createResource: " . $e->getMessage());
             return false;
         }
     }
@@ -107,6 +122,7 @@ class ResourceController {
             
             return $prefix . $next_number;
         } catch(PDOException $e) {
+            error_log("Error in generateAccessionNumber: " . $e->getMessage());
             return false;
         }
     }
