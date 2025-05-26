@@ -13,10 +13,24 @@ class ResourceController {
         try {
             $this->conn->beginTransaction();
 
+            // Validate category
+            $validCategories = ['fiction', 'non-fiction', 'reference', 'academic'];
+            $category = strtolower($data['category']);
+            if (!in_array($category, $validCategories)) {
+                throw new Exception("Invalid category. Must be one of: " . implode(', ', $validCategories));
+            }
+
+            // Validate status
+            $validStatuses = ['available', 'unavailable', 'borrowed'];
+            $status = strtolower($data['status'] ?? 'available');
+            if (!in_array($status, $validStatuses)) {
+                throw new Exception("Invalid status. Must be one of: " . implode(', ', $validStatuses));
+            }
+
             // Handle file upload
             $cover_image = null;
             if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
-                $upload_dir = dirname(__DIR__) . '../uploads/covers/';
+                $upload_dir = dirname(__DIR__) . '/uploads/covers/';
                 
                 // Create directory if it doesn't exist
                 if (!file_exists($upload_dir)) {
@@ -35,18 +49,18 @@ class ResourceController {
 
             // Insert into library_resources with cover_image
             $query = "INSERT INTO library_resources (title, accession_number, category, status, cover_image) 
-                     VALUES (:title, :accession_number, :category, :status, :cover_image)";
+                     VALUES (:title, :accession_number, :category, :status, :cover_image) 
+                     RETURNING resource_id";
             
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":title", $data['title']);
             $stmt->bindParam(":accession_number", $data['accession_number']);
-            $stmt->bindParam(":category", $data['category']);
-            $status = 'available';
+            $stmt->bindParam(":category", $category);
             $stmt->bindParam(":status", $status);
             $stmt->bindParam(":cover_image", $cover_image);
             $stmt->execute();
             
-            $resource_id = $this->conn->lastInsertId();
+            $resource_id = $stmt->fetch(PDO::FETCH_ASSOC)['resource_id'];
 
             // Insert into specific resource type table
             if ($type === 'book') {
@@ -67,6 +81,7 @@ class ResourceController {
             return true;
         } catch(PDOException $e) {
             $this->conn->rollBack();
+            error_log("Error in createResource: " . $e->getMessage());
             return false;
         }
     }
@@ -107,6 +122,7 @@ class ResourceController {
             
             return $prefix . $next_number;
         } catch(PDOException $e) {
+            error_log("Error in generateAccessionNumber: " . $e->getMessage());
             return false;
         }
     }
@@ -152,6 +168,32 @@ class ResourceController {
 
     public function deleteResource($resource_id) {
         try {
+            // Check if resource is currently borrowed
+            $borrowQuery = "SELECT COUNT(*) as borrow_count 
+                           FROM borrowings 
+                           WHERE resource_id = :resource_id 
+                           AND status = 'active'";
+            $borrowStmt = $this->conn->prepare($borrowQuery);
+            $borrowStmt->bindParam(":resource_id", $resource_id);
+            $borrowStmt->execute();
+            $borrowResult = $borrowStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($borrowResult['borrow_count'] > 0) {
+                throw new Exception("Cannot delete: Resource is currently borrowed");
+            }
+
+            // Check current status
+            $statusQuery = "SELECT status FROM library_resources WHERE resource_id = :resource_id";
+            $statusStmt = $this->conn->prepare($statusQuery);
+            $statusStmt->bindParam(":resource_id", $resource_id);
+            $statusStmt->execute();
+            $statusResult = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+            $currentStatus = $statusResult['status'];
+            if (!is_null($currentStatus) && $currentStatus !== 'available') {
+                throw new Exception("Cannot delete: Resource status must be 'available' or NULL");
+            }
+
             $this->conn->beginTransaction();
 
             // Delete from books table first
@@ -169,8 +211,11 @@ class ResourceController {
             $this->conn->commit();
             return true;
         } catch(PDOException $e) {
-            $this->conn->rollBack();
-            return false;
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            error_log("Delete resource error: " . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -269,94 +314,112 @@ class ResourceController {
     
 
     public function getMonthlyBorrowings($year) {
-        $query = "SELECT MONTH(borrow_date) as month, COUNT(*) as count 
-                  FROM borrowings 
-                  WHERE YEAR(borrow_date) = :year 
-                  GROUP BY MONTH(borrow_date)";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':year', $year);
-        $stmt->execute();
-        
-        // Initialize array with zeros for all months
-        $monthlyData = array_fill(0, 12, 0);
-        
-        // Fill in actual data
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $monthlyData[$row['month'] - 1] = (int)$row['count'];
+        try {
+            $query = "SELECT EXTRACT(MONTH FROM borrow_date) as month, COUNT(*) as count 
+                     FROM borrowings 
+                     WHERE EXTRACT(YEAR FROM borrow_date) = :year 
+                     GROUP BY EXTRACT(MONTH FROM borrow_date)
+                     ORDER BY month";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':year', $year);
+            $stmt->execute();
+            
+            // Initialize array with zeros for all months
+            $monthlyData = array_fill(0, 12, 0);
+            
+            // Fill in actual data
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $monthlyData[$row['month'] - 1] = (int)$row['count'];
+            }
+            
+            return $monthlyData;
+        } catch(PDOException $e) {
+            error_log("Error in getMonthlyBorrowings: " . $e->getMessage());
+            return array_fill(0, 12, 0);
         }
-        
-        return $monthlyData;
     }
 
     public function getMostBorrowedResources() {
-        $sql = "SELECT 
-                    lr.resource_id,
-                    lr.title,
-                    lr.cover_image,
-                    CASE 
-                        WHEN b2.book_id IS NOT NULL THEN 'book'
-                        WHEN p.periodical_id IS NOT NULL THEN 'periodical'
-                        WHEN m.media_id IS NOT NULL THEN 'media'
-                    END as resource_type,
-                    COUNT(br.borrowing_id) as borrow_count
-                FROM library_resources lr
-                LEFT JOIN borrowings br ON lr.resource_id = br.resource_id
-                LEFT JOIN books b2 ON lr.resource_id = b2.resource_id
-                LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
-                LEFT JOIN media_resources m ON lr.resource_id = m.resource_id
-                GROUP BY 
-                    lr.resource_id, 
-                    lr.title,
-                    lr.cover_image,
-                    resource_type
-                HAVING borrow_count > 0
+        try {
+            $sql = "WITH resource_counts AS (
+                    SELECT 
+                        lr.resource_id,
+                        lr.title,
+                        lr.cover_image,
+                        CASE 
+                            WHEN b2.book_id IS NOT NULL THEN 'book'
+                            WHEN p.periodical_id IS NOT NULL THEN 'periodical'
+                            WHEN m.media_id IS NOT NULL THEN 'media'
+                        END as resource_type,
+                        COUNT(br.borrowing_id) as borrow_count
+                    FROM library_resources lr
+                    LEFT JOIN borrowings br ON lr.resource_id = br.resource_id
+                    LEFT JOIN books b2 ON lr.resource_id = b2.resource_id
+                    LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
+                    LEFT JOIN media_resources m ON lr.resource_id = m.resource_id
+                    GROUP BY 
+                        lr.resource_id, 
+                        lr.title,
+                        lr.cover_image,
+                        resource_type
+                )
+                SELECT * FROM resource_counts 
+                WHERE borrow_count > 0
                 ORDER BY borrow_count DESC";
-        
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute();
-        
-        $results = [
-            'books' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null],
-            'periodicals' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null],
-            'media' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null]
-        ];
-        
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            switch ($row['resource_type']) {
-                case 'book':
-                    if ($row['borrow_count'] > ($results['books']['count'] ?? 0)) {
-                        $results['books'] = [
-                            'title' => $row['title'], 
-                            'count' => $row['borrow_count'],
-                            'cover_image' => $row['cover_image'],
-                            'resource_id' => $row['resource_id']
-                        ];
-                    }
-                    break;
-                case 'periodical':
-                    if ($row['borrow_count'] > ($results['periodicals']['count'] ?? 0)) {
-                        $results['periodicals'] = [
-                            'title' => $row['title'], 
-                            'count' => $row['borrow_count'],
-                            'cover_image' => $row['cover_image'],
-                            'resource_id' => $row['resource_id']
-                        ];
-                    }
-                    break;
-                case 'media':
-                    if ($row['borrow_count'] > ($results['media']['count'] ?? 0)) {
-                        $results['media'] = [
-                            'title' => $row['title'], 
-                            'count' => $row['borrow_count'],
-                            'cover_image' => $row['cover_image'],
-                            'resource_id' => $row['resource_id']
-                        ];
-                    }
-                    break;
+            
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+            
+            $results = [
+                'books' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null],
+                'periodicals' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null],
+                'media' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null]
+            ];
+            
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                switch ($row['resource_type']) {
+                    case 'book':
+                        if ($row['borrow_count'] > ($results['books']['count'] ?? 0)) {
+                            $results['books'] = [
+                                'title' => $row['title'], 
+                                'count' => $row['borrow_count'],
+                                'cover_image' => $row['cover_image'],
+                                'resource_id' => $row['resource_id']
+                            ];
+                        }
+                        break;
+                    case 'periodical':
+                        if ($row['borrow_count'] > ($results['periodicals']['count'] ?? 0)) {
+                            $results['periodicals'] = [
+                                'title' => $row['title'], 
+                                'count' => $row['borrow_count'],
+                                'cover_image' => $row['cover_image'],
+                                'resource_id' => $row['resource_id']
+                            ];
+                        }
+                        break;
+                    case 'media':
+                        if ($row['borrow_count'] > ($results['media']['count'] ?? 0)) {
+                            $results['media'] = [
+                                'title' => $row['title'], 
+                                'count' => $row['borrow_count'],
+                                'cover_image' => $row['cover_image'],
+                                'resource_id' => $row['resource_id']
+                            ];
+                        }
+                        break;
+                }
             }
+            
+            return $results;
+        } catch(PDOException $e) {
+            error_log("Error in getMostBorrowedResources: " . $e->getMessage());
+            return [
+                'books' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null],
+                'periodicals' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null],
+                'media' => ['title' => 'N/A', 'count' => 0, 'cover_image' => null]
+            ];
         }
-        
-        return $results;
     }
 }

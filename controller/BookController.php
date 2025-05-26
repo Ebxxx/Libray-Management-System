@@ -14,6 +14,16 @@ class BookController {
         try {
             $this->conn->beginTransaction();
 
+            // Log incoming data
+            error_log("Creating book with data: " . print_r($bookData, true));
+
+            // Validate category
+            $validCategories = ['fiction', 'non-fiction', 'reference', 'academic'];
+            $category = strtolower($bookData['category']);
+            if (!in_array($category, $validCategories)) {
+                throw new Exception("Invalid category. Must be one of: " . implode(', ', $validCategories));
+            }
+
             // Handle image upload
             $coverImage = null;
             if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
@@ -28,26 +38,56 @@ class BookController {
 
                 if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $uploadPath)) {
                     $coverImage = 'uploads/covers/' . $fileName;
+                    error_log("Cover image uploaded successfully: " . $coverImage);
+                } else {
+                    error_log("Failed to move uploaded file to: " . $uploadPath);
                 }
             }
 
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
                               (title, accession_number, category, status, cover_image) 
-                              VALUES (:title, :accession_number, 'Book', 'available', :cover_image)";
+                              VALUES (:title, :accession_number, :category, 'available', :cover_image)
+                              RETURNING resource_id";
+            
+            error_log("Executing resource query: " . $resourceQuery);
+            error_log("Resource parameters: " . print_r([
+                'title' => $bookData['title'],
+                'accession_number' => $bookData['accession_number'],
+                'category' => $category,
+                'cover_image' => $coverImage
+            ], true));
+
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $bookData['title']);
             $resourceStmt->bindParam(":accession_number", $bookData['accession_number']);
+            $resourceStmt->bindParam(":category", $category);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
             // Get the last inserted resource_id
-            $resourceId = $this->conn->lastInsertId();
+            $result = $resourceStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$result) {
+                throw new PDOException("Failed to get resource_id after insert");
+            }
+            $resourceId = $result['resource_id'];
+            error_log("Resource created with ID: " . $resourceId);
 
             // Then, insert into books
             $bookQuery = "INSERT INTO books 
                           (resource_id, author, isbn, publisher, edition, publication_date) 
                           VALUES (:resource_id, :author, :isbn, :publisher, :edition, :publication_date)";
+            
+            error_log("Executing book query: " . $bookQuery);
+            error_log("Book parameters: " . print_r([
+                'resource_id' => $resourceId,
+                'author' => $bookData['author'],
+                'isbn' => $bookData['isbn'],
+                'publisher' => $bookData['publisher'],
+                'edition' => $bookData['edition'],
+                'publication_date' => $bookData['publication_date']
+            ], true));
+
             $bookStmt = $this->conn->prepare($bookQuery);
             $bookStmt->bindParam(":resource_id", $resourceId);
             $bookStmt->bindParam(":author", $bookData['author']);
@@ -59,13 +99,17 @@ class BookController {
 
             // Commit transaction
             $this->conn->commit();
+            error_log("Book created successfully");
 
             return true;
         } catch (PDOException $e) {
             // Rollback transaction
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Create book error: " . $e->getMessage());
-            return false;
+            error_log("Error trace: " . $e->getTraceAsString());
+            throw $e; // Re-throw the exception to handle it in the calling code
         }
     }
 
@@ -175,35 +219,6 @@ class BookController {
         }
     }
 
-    // public function deleteBook($resourceId) {
-    //     try {
-    //         // Begin transaction
-    //         $this->conn->beginTransaction();
-
-    //         // Delete from books first due to foreign key constraint
-    //         $bookQuery = "DELETE FROM books WHERE resource_id = :resource_id";
-    //         $bookStmt = $this->conn->prepare($bookQuery);
-    //         $bookStmt->bindParam(":resource_id", $resourceId);
-    //         $bookStmt->execute();
-
-    //         // Then delete from library_resources
-    //         $resourceQuery = "DELETE FROM library_resources WHERE resource_id = :resource_id";
-    //         $resourceStmt = $this->conn->prepare($resourceQuery);
-    //         $resourceStmt->bindParam(":resource_id", $resourceId);
-    //         $resourceStmt->execute();
-
-    //         // Commit transaction
-    //         $this->conn->commit();
-
-    //         return true;
-    //     } catch (PDOException $e) {
-    //         // Rollback transaction
-    //         $this->conn->rollBack();
-    //         error_log("Delete book error: " . $e->getMessage());
-    //         return false;
-    //     }
-    // }
-
     public function deleteBook($resourceId) {
         try {
             // Check if book is currently borrowed
@@ -220,6 +235,18 @@ class BookController {
                 throw new Exception("Cannot delete: Book is currently borrowed");
             }
 
+            // Check current status
+            $statusQuery = "SELECT status FROM library_resources WHERE resource_id = :resource_id";
+            $statusStmt = $this->conn->prepare($statusQuery);
+            $statusStmt->bindParam(":resource_id", $resourceId);
+            $statusStmt->execute();
+            $statusResult = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+            $currentStatus = $statusResult['status'];
+            if (!is_null($currentStatus) && $currentStatus !== 'available') {
+                throw new Exception("Cannot delete: Book status must be 'available' or NULL");
+            }
+
             // Begin transaction
             $this->conn->beginTransaction();
 
@@ -229,9 +256,9 @@ class BookController {
             $bookStmt->bindParam(":resource_id", $resourceId);
             $bookStmt->execute();
 
-            // Update library_resources status to 'deleted' instead of deleting
+            // Update library_resources status to 'maintenance'
             $resourceQuery = "UPDATE library_resources 
-                             SET status = 'deleted' 
+                             SET status = 'maintenance' 
                              WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":resource_id", $resourceId);

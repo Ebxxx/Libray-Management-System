@@ -34,15 +34,21 @@ class PeriodicalController {
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
                               (title, accession_number, category, status, cover_image) 
-                              VALUES (:title, :accession_number, 'Periodical', 'available', :cover_image)";
+                              VALUES (:title, :accession_number, :category, 'available', :cover_image)
+                              RETURNING resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
             $resourceStmt->bindParam(":accession_number", $periodicalData['accession_number']);
+            $resourceStmt->bindParam(":category", $periodicalData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
             // Get the last inserted resource_id
-            $resourceId = $this->conn->lastInsertId();
+            $result = $resourceStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$result) {
+                throw new PDOException("Failed to get resource_id after insert");
+            }
+            $resourceId = $result['resource_id'];
 
             // Then, insert into periodicals
             $periodicalQuery = "INSERT INTO periodicals 
@@ -58,13 +64,14 @@ class PeriodicalController {
 
             // Commit transaction
             $this->conn->commit();
-
             return true;
         } catch (PDOException $e) {
             // Rollback transaction
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Create periodical error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -120,16 +127,16 @@ class PeriodicalController {
             // Update library_resources
             $resourceQuery = "UPDATE library_resources 
                               SET title = :title, 
-                                  accession_number = :accession_number, 
                                   category = :category" .
                                   ($coverImage ? ", cover_image = :cover_image" : "") . 
                               " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
-            $resourceStmt->bindParam(":accession_number", $periodicalData['accession_number']);
             $resourceStmt->bindParam(":category", $periodicalData['category']);
-            $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->bindParam(":resource_id", $resourceId);
+            if ($coverImage) {
+                $resourceStmt->bindParam(":cover_image", $coverImage);
+            }
             $resourceStmt->execute();
 
             // Update periodicals
@@ -149,13 +156,14 @@ class PeriodicalController {
 
             // Commit transaction
             $this->conn->commit();
-
             return true;
         } catch (PDOException $e) {
             // Rollback transaction
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Update periodical error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -175,6 +183,18 @@ class PeriodicalController {
                 throw new Exception("Cannot delete: Periodical is currently borrowed");
             }
 
+            // Check current status
+            $statusQuery = "SELECT status FROM library_resources WHERE resource_id = :resource_id";
+            $statusStmt = $this->conn->prepare($statusQuery);
+            $statusStmt->bindParam(":resource_id", $resourceId);
+            $statusStmt->execute();
+            $statusResult = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+            $currentStatus = $statusResult['status'];
+            if (!is_null($currentStatus) && $currentStatus !== 'available') {
+                throw new Exception("Cannot delete: Periodical status must be 'available' or NULL");
+            }
+
             // Begin transaction
             $this->conn->beginTransaction();
 
@@ -184,10 +204,8 @@ class PeriodicalController {
             $periodicalStmt->bindParam(":resource_id", $resourceId);
             $periodicalStmt->execute();
 
-            // Update library_resources status to 'deleted' instead of deleting
-            $resourceQuery = "UPDATE library_resources 
-                             SET status = 'deleted' 
-                             WHERE resource_id = :resource_id";
+            // Delete from library_resources
+            $resourceQuery = "DELETE FROM library_resources WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             $resourceStmt->execute();

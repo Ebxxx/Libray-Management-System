@@ -35,15 +35,21 @@ class MediaResourceController {
             // First, insert into library_resources
             $resourceQuery = "INSERT INTO library_resources 
                             (title, accession_number, category, status, cover_image) 
-                            VALUES (:title, :accession_number, 'Media', 'available', :cover_image)";
+                            VALUES (:title, :accession_number, :category, 'available', :cover_image)
+                            RETURNING resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $mediaData['title']);
             $resourceStmt->bindParam(":accession_number", $mediaData['accession_number']);
+            $resourceStmt->bindParam(":category", $mediaData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
             // Get the last inserted resource_id
-            $resourceId = $this->conn->lastInsertId();
+            $result = $resourceStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$result) {
+                throw new PDOException("Failed to get resource_id after insert");
+            }
+            $resourceId = $result['resource_id'];
 
             // Then, insert into media_resources
             $mediaQuery = "INSERT INTO media_resources 
@@ -58,13 +64,14 @@ class MediaResourceController {
 
             // Commit transaction
             $this->conn->commit();
-
             return true;
         } catch (PDOException $e) {
             // Rollback transaction
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Create media resource error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -120,16 +127,16 @@ class MediaResourceController {
             // Update library_resources
             $resourceQuery = "UPDATE library_resources 
                             SET title = :title, 
-                                accession_number = :accession_number, 
                                 category = :category" .
                                 ($coverImage ? ", cover_image = :cover_image" : "") . 
                             " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $mediaData['title']);
-            $resourceStmt->bindParam(":accession_number", $mediaData['accession_number']);
             $resourceStmt->bindParam(":category", $mediaData['category']);
-            $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->bindParam(":resource_id", $resourceId);
+            if ($coverImage) {
+                $resourceStmt->bindParam(":cover_image", $coverImage);
+            }
             $resourceStmt->execute();
 
             // Update media_resources
@@ -147,13 +154,14 @@ class MediaResourceController {
 
             // Commit transaction
             $this->conn->commit();
-
             return true;
         } catch (PDOException $e) {
             // Rollback transaction
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Update media resource error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -173,6 +181,18 @@ class MediaResourceController {
                 throw new Exception("Cannot delete: Media resource is currently borrowed");
             }
 
+            // Check current status
+            $statusQuery = "SELECT status FROM library_resources WHERE resource_id = :resource_id";
+            $statusStmt = $this->conn->prepare($statusQuery);
+            $statusStmt->bindParam(":resource_id", $resourceId);
+            $statusStmt->execute();
+            $statusResult = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+            $currentStatus = $statusResult['status'];
+            if (!is_null($currentStatus) && $currentStatus !== 'available') {
+                throw new Exception("Cannot delete: Media resource status must be 'available' or NULL");
+            }
+
             // Begin transaction
             $this->conn->beginTransaction();
 
@@ -182,10 +202,8 @@ class MediaResourceController {
             $mediaStmt->bindParam(":resource_id", $resourceId);
             $mediaStmt->execute();
 
-            // Update library_resources status to 'deleted' instead of deleting
-            $resourceQuery = "UPDATE library_resources 
-                             SET status = 'deleted' 
-                             WHERE resource_id = :resource_id";
+            // Delete from library_resources
+            $resourceQuery = "DELETE FROM library_resources WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             $resourceStmt->execute();

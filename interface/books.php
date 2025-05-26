@@ -24,46 +24,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     // Handle Create/Update
     else {
-        // Sanitize and validate input
-        $bookData = [
-            'title' => filter_input(INPUT_POST, 'title', FILTER_SANITIZE_STRING),
-            'author' => filter_input(INPUT_POST, 'author', FILTER_SANITIZE_STRING),
-            'isbn' => filter_input(INPUT_POST, 'isbn', FILTER_SANITIZE_STRING),
-            'publisher' => filter_input(INPUT_POST, 'publisher', FILTER_SANITIZE_STRING),
-            'edition' => filter_input(INPUT_POST, 'edition', FILTER_SANITIZE_STRING),
-            'publication_date' => filter_input(INPUT_POST, 'publication_date', FILTER_SANITIZE_STRING),
-            'category' => filter_input(INPUT_POST, 'category', FILTER_SANITIZE_STRING),
-        ];
+        try {
+            // Sanitize and validate input
+            $bookData = [
+                'title' => filter_input(INPUT_POST, 'title', FILTER_SANITIZE_STRING),
+                'author' => filter_input(INPUT_POST, 'author', FILTER_SANITIZE_STRING),
+                'isbn' => filter_input(INPUT_POST, 'isbn', FILTER_SANITIZE_STRING),
+                'publisher' => filter_input(INPUT_POST, 'publisher', FILTER_SANITIZE_STRING),
+                'edition' => filter_input(INPUT_POST, 'edition', FILTER_SANITIZE_STRING),
+                'publication_date' => filter_input(INPUT_POST, 'publication_date', FILTER_SANITIZE_STRING),
+                'category' => filter_input(INPUT_POST, 'category', FILTER_SANITIZE_STRING),
+            ];
 
-        // Generate Accession Number if not provided
-        $bookData['accession_number'] = filter_input(INPUT_POST, 'accession_number', FILTER_SANITIZE_STRING);
-        if (empty($bookData['accession_number'])) {
-            $bookData['accession_number'] = $bookController->generateAccessionNumber();
-        }
+            // Validate required fields
+            $requiredFields = ['title', 'author', 'category'];
+            $missingFields = [];
+            foreach ($requiredFields as $field) {
+                if (empty($bookData[$field])) {
+                    $missingFields[] = $field;
+                }
+            }
 
-        // Update or Create Book
-        if (isset($_POST['resource_id']) && !empty($_POST['resource_id'])) {
-            $resourceId = filter_input(INPUT_POST, 'resource_id', FILTER_SANITIZE_NUMBER_INT);
-            if ($bookController->updateBook($resourceId, $bookData)) {
-                Session::setFlash('success', 'Book updated successfully');
-                header("Location: books.php");
-                exit();
-            } else {
-                Session::setFlash('error', 'Error updating book');
-                header("Location: books.php");
-                exit();
+            if (!empty($missingFields)) {
+                throw new Exception("Missing required fields: " . implode(', ', $missingFields));
             }
-        } else {
-            if ($bookController->createBook($bookData)) {
-                Session::setFlash('success', 'Book created successfully');
-                header("Location: books.php");
-                exit();
-            } else {
-                Session::setFlash('error', 'Error creating book');
-                header("Location: books.php");
-                exit();
+
+            // Generate Accession Number if not provided
+            $bookData['accession_number'] = filter_input(INPUT_POST, 'accession_number', FILTER_SANITIZE_STRING);
+            if (empty($bookData['accession_number'])) {
+                $bookData['accession_number'] = $bookController->generateAccessionNumber();
+                if (!$bookData['accession_number']) {
+                    throw new Exception("Failed to generate accession number");
+                }
             }
+
+            // Update or Create Book
+            if (isset($_POST['resource_id']) && !empty($_POST['resource_id'])) {
+                $resourceId = filter_input(INPUT_POST, 'resource_id', FILTER_SANITIZE_NUMBER_INT);
+                if ($bookController->updateBook($resourceId, $bookData)) {
+                    Session::setFlash('success', 'Book updated successfully');
+                } else {
+                    throw new Exception("Error updating book");
+                }
+            } else {
+                if ($bookController->createBook($bookData)) {
+                    Session::setFlash('success', 'Book created successfully');
+                } else {
+                    throw new Exception("Error creating book");
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Database error: " . $e->getMessage());
+            Session::setFlash('error', "Database error: " . $e->getMessage());
+        } catch (Exception $e) {
+            error_log("Error: " . $e->getMessage());
+            Session::setFlash('error', $e->getMessage());
         }
+        header("Location: books.php");
+        exit();
     }
 }
 
