@@ -16,9 +16,18 @@ $resourceController = new ResourceController();
 
 // Handle borrowing request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resource_id'])) {
-    $result = $borrowingController->borrowResource($_SESSION['user_id'], $_POST['resource_id']);
-    $message = $result['message'];
-    $success = $result['success'];
+    try {
+        $result = $borrowingController->borrowResource($_SESSION['user_id'], $_POST['resource_id']);
+        if ($result['success']) {
+            $alertClass = 'alert-success';
+        } else {
+            $alertClass = 'alert-danger';
+        }
+        $message = $result['message'];
+    } catch (Exception $e) {
+        $alertClass = 'alert-danger';
+        $message = "An error occurred: " . $e->getMessage();
+    }
 }
 
 // Get resource type from GET parameter, default to books
@@ -27,17 +36,17 @@ $resourceType = isset($_GET['type']) ? $_GET['type'] : 'books';
 // Get available resources based on type
 switch ($resourceType) {
     case 'media':
-        $availableResources = $borrowingController->getAvailableAndPendingMedia($_SESSION['user_id']);
+        $availableResources = $resourceController->getResources('media');
         $columns = ['title', 'category', 'accession_number', 'media_type', 'runtime', 'format'];
         $defaultIcon = 'bi-film';
         break;
     case 'periodicals':
-        $availableResources = $borrowingController->getAvailableAndPendingPeriodicals($_SESSION['user_id']);
+        $availableResources = $resourceController->getResources('periodical');
         $columns = ['title', 'category', 'accession_number', 'publication_date', 'volume', 'issue'];
         $defaultIcon = 'bi-journal';
         break;
     default: // books
-        $availableResources = $borrowingController->getAvailableAndPendingBooks($_SESSION['user_id']);
+        $availableResources = $resourceController->getResources('book');
         $columns = ['title', 'category', 'author', 'isbn', 'publisher', 'accession_number'];
         $defaultIcon = 'bi-book';
 }
@@ -54,6 +63,17 @@ if (!empty($searchTerm)) {
         }
         return false;
     });
+}
+
+// Check for pending borrowings
+if (isset($_SESSION['user_id'])) {
+    $pendingBorrowings = $borrowingController->getPendingBorrowings();
+    $pendingResourceIds = array_column($pendingBorrowings, 'resource_id');
+    
+    // Mark resources that are pending
+    foreach ($availableResources as &$resource) {
+        $resource['pending'] = in_array($resource['resource_id'], $pendingResourceIds);
+    }
 }
 ?>
 
@@ -100,8 +120,9 @@ if (!empty($searchTerm)) {
                 </div>
                 
                 <?php if (isset($message)): ?>
-                    <div class="alert <?php echo $result ? 'alert-success' : 'alert-danger'; ?>">
-                        <?php echo $message; ?>
+                    <div class="alert <?php echo isset($alertClass) ? $alertClass : 'alert-info'; ?> alert-dismissible fade show" role="alert">
+                        <?php echo htmlspecialchars($message); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 <?php endif; ?>
 

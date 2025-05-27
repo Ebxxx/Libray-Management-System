@@ -78,56 +78,86 @@ $borrowingHistory = $borrowingController->displayBorrowingHistory($user_id);
                                         <thead class="table-dark">
                                             <tr>
                                                 <th>Title</th>
+                                                <th>Category</th>
+                                                <th>Type</th>
                                                 <th>Borrow Date</th>
                                                 <th>Due Date</th>
                                                 <th>Return Date</th>
                                                 <th>Status</th>
                                                 <th>Days Overdue</th>
-                                                <th>Fine Amount</th>
+                                                <th>Fine</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php foreach ($borrowingHistory as $record): ?>
-                                                <tr>
+                                                <?php 
+                                                    $isOverdue = $record['current_status'] === 'overdue';
+                                                    $rowClass = $isOverdue ? 'table-danger' : '';
+                                                ?>
+                                                <tr class="<?php echo $rowClass; ?>">
                                                     <td><?php echo htmlspecialchars($record['title']); ?></td>
+                                                    <td>
+                                                        <span class="badge bg-secondary">
+                                                            <?php echo ucfirst(htmlspecialchars($record['category'])); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-info">
+                                                            <?php echo ucfirst(htmlspecialchars($record['resource_type'])); ?>
+                                                        </span>
+                                                    </td>
                                                     <td><?php echo date('M d, Y', strtotime($record['borrow_date'])); ?></td>
-                                                    <td><?php echo date('M d, Y', strtotime($record['due_date'])); ?></td>
-                                                    <td><?php echo $record['return_date'] 
-                                                        ? date('M d, Y', strtotime($record['return_date'])) 
-                                                        : 'Not returned'; ?></td>
+                                                    <td>
+                                                        <?php 
+                                                            $dueDate = strtotime($record['due_date']);
+                                                            $dueDateClass = $isOverdue ? 'text-danger fw-bold' : '';
+                                                            echo "<span class='$dueDateClass'>" . date('M d, Y', $dueDate) . "</span>";
+                                                        ?>
+                                                    </td>
+                                                    <td>
+                                                        <?php 
+                                                            echo $record['return_date'] 
+                                                                ? date('M d, Y', strtotime($record['return_date'])) 
+                                                                : '<span class="text-muted">Not returned</span>';
+                                                        ?>
+                                                    </td>
                                                     <td>
                                                         <?php
                                                         $statusBadge = match($record['current_status']) {
-                                                            'active' => 'bg-warning',
-                                                            'returned' => 'bg-success',
+                                                            'active' => 'bg-success',
+                                                            'returned' => 'bg-info',
                                                             'overdue' => 'bg-danger',
                                                             default => 'bg-secondary'
                                                         };
+                                                        $statusText = ucfirst($record['current_status']);
                                                         ?>
                                                         <span class="badge <?php echo $statusBadge; ?>">
-                                                            <?php echo ucfirst($record['current_status']); ?>
+                                                            <?php echo $statusText; ?>
                                                         </span>
                                                     </td>
                                                     <td>
                                                         <?php if ($record['days_overdue'] > 0): ?>
-                                                            <span class="text-danger"><?php echo $record['days_overdue']; ?> days</span>
+                                                            <span class="text-danger fw-bold">
+                                                                <?php echo $record['days_overdue']; ?> days
+                                                            </span>
                                                         <?php else: ?>
-                                                            -
+                                                            <span class="text-success">On time</span>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td>
                                                         <?php if ($record['calculated_fine'] > 0): ?>
-                                                            <strong class="text-danger">
-                                                                $<?php echo number_format($record['calculated_fine'], 2); ?>
-                                                            </strong>
-                                                            <?php if ($record['current_status'] === 'overdue'): ?>
-                                                                <br>
-                                                                <small class="text-muted">
-                                                                    Rate: $<?php echo number_format($record['daily_fine_rate'], 2); ?>/day
-                                                                </small>
-                                                            <?php endif; ?>
+                                                            <div class="text-danger">
+                                                                <strong>
+                                                                    $<?php echo number_format($record['calculated_fine'], 2); ?>
+                                                                </strong>
+                                                                <?php if ($isOverdue): ?>
+                                                                    <div class="small text-muted">
+                                                                        Rate: $<?php echo number_format($record['daily_fine_rate'], 2); ?>/day
+                                                                    </div>
+                                                                <?php endif; ?>
+                                                            </div>
                                                         <?php else: ?>
-                                                            No fine
+                                                            <span class="text-success">No fine</span>
                                                         <?php endif; ?>
                                                     </td>
                                                 </tr>
