@@ -63,7 +63,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
                         <div class="card-body position-relative p-4" style="background-color: #2B3377;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-book-fill text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Total Books</h5>
+                                <h5 class="card-title text-white mb-0">Total Library Materials</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['total_books']; ?></h2>
                         </div>
@@ -75,7 +75,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
                         <div class="card-body position-relative p-4" style="background-color: #0047FF;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-journal-check text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Available Books</h5>
+                                <h5 class="card-title text-white mb-0">Available Materials</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['available_books']; ?></h2>
                         </div>
@@ -87,7 +87,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
                         <div class="card-body position-relative p-4" style="background-color: #FF00FF;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-journal-arrow-up text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Borrowed Books</h5>
+                                <h5 class="card-title text-white mb-0">Borrowed Materials</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['borrowed_books']; ?></h2>
                         </div>
@@ -100,7 +100,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
                         <div class="card-body position-relative p-4" style="background-color: #FF6600;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-exclamation-triangle-fill text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Overdue Books</h5>
+                                <h5 class="card-title text-white mb-0">Overdue Materials</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['overdue_books']; ?></h2>
                         </div>
@@ -422,7 +422,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
     });
     </script>
 
-    <!-- Add this modal at the bottom of the file, before the closing body tag -->
+    <!-- Resource Details Modal (ensure this is present only once) -->
     <div class="modal fade" id="resourceDetailsModal" tabindex="-1" aria-labelledby="resourceDetailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -431,7 +431,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="resourceDetailsContent">
-                    <!-- Content will be loaded dynamically -->
+                    <div class="text-center">Loading...</div>
                 </div>
             </div>
         </div>
@@ -440,7 +440,6 @@ $popularResources = $resourceController->getMostBorrowedResources();
     <!-- Modify the image sections to be clickable -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Make all resource images clickable
         const resourceImages = document.querySelectorAll('.resource-image');
         resourceImages.forEach(img => {
             img.style.cursor = 'pointer';
@@ -452,23 +451,27 @@ $popularResources = $resourceController->getMostBorrowedResources();
         });
 
         function fetchResourceDetails(resourceId, resourceType) {
+            // Clear modal content before fetching
+            document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-center">Loading...</div>';
+            // Only show modal after data is loaded!
             fetch(`../api/get_resource_details.php?resource_id=${resourceId}&type=${resourceType}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         displayResourceDetails(data.resource);
                     } else {
-                        alert('Error loading resource details');
+                        document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                    document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
+                });
         }
 
         function displayResourceDetails(resource) {
-            // Get status color based on the status value
-            const statusColor = resource.status.toLowerCase() === 'available' 
+            const statusColor = resource.status && resource.status.toLowerCase() === 'available' 
                 ? 'text-success' 
-                : resource.status.toLowerCase() === 'borrowed' 
+                : resource.status && resource.status.toLowerCase() === 'borrowed' 
                     ? 'text-warning' 
                     : 'text-muted';
 
@@ -481,30 +484,73 @@ $popularResources = $resourceController->getMostBorrowedResources();
                 </div>
                 <div class="resource-details">
                     <h6 class="fw-bold">Title:</h6>
-                    <p>${resource.title}</p>
+                    <p>${resource.title || 'N/A'}</p>
                     <h6 class="fw-bold">Category:</h6>
-                    <p>${resource.category}</p>
+                    <p>${resource.category || 'N/A'}</p>
                     <h6 class="fw-bold">Status:</h6>
-                    <p class="fw-bold ${statusColor}">${resource.status.toUpperCase()}</p>`;
+                    <p class="fw-bold ${statusColor}">${resource.status ? resource.status.toUpperCase() : 'N/A'}</p>`;
 
-            // // Add specific details based on resource type
-            // if (resource.author) {
-            //     detailsHtml += `
-            //         <h6 class="fw-bold">Author:</h6>
-            //         <p>${resource.author}</p>
-            //         <h6 class="fw-bold">ISBN:</h6>
-            //         <p>${resource.isbn}</p>
-            //         <h6 class="fw-bold">Publisher:</h6>
-            //         <p>${resource.publisher}</p>
-            //         <h6 class="fw-bold">Edition:</h6>
-            //         <p>${resource.edition}</p>
-            //         <h6 class="fw-bold">Publication Date:</h6>
-            //         <p>${resource.publication_date}</p>`;
-            // }
+            // Book details
+            if (resource.author) {
+                detailsHtml += `
+                    <h6 class="fw-bold">Author:</h6>
+                    <p>${resource.author}</p>
+                    <h6 class="fw-bold">ISBN:</h6>
+                    <p>${resource.isbn}</p>
+                    <h6 class="fw-bold">Publisher:</h6>
+                    <p>${resource.publisher}</p>
+                    <h6 class="fw-bold">Edition:</h6>
+                    <p>${resource.edition}</p>
+                    <h6 class="fw-bold">Publication Date:</h6>
+                    <p>${resource.publication_date}</p>`;
+            }
+
+            // Periodical details
+            if (resource.volume || resource.issue) {
+                detailsHtml += `
+                    <h6 class="fw-bold">Volume:</h6>
+                    <p>${resource.volume || 'N/A'}</p>
+                    <h6 class="fw-bold">Issue:</h6>
+                    <p>${resource.issue || 'N/A'}</p>
+                    <h6 class="fw-bold">Publication Date:</h6>
+                    <p>${resource.publication_date || 'N/A'}</p>`;
+            }
+
+            // Media details
+            if (resource.media_type || resource.runtime || resource.format) {
+                detailsHtml += `
+                    <h6 class="fw-bold">Media Type:</h6>
+                    <p>${resource.media_type || 'N/A'}</p>
+                    <h6 class="fw-bold">Runtime:</h6>
+                    <p>${resource.runtime || 'N/A'}</p>
+                    <h6 class="fw-bold">Format:</h6>
+                    <p>${resource.format || 'N/A'}</p>`;
+            }
 
             document.getElementById('resourceDetailsContent').innerHTML = detailsHtml;
-            new bootstrap.Modal(document.getElementById('resourceDetailsModal')).show();
+            // Only show the modal here!
+            const modal = new bootstrap.Modal(document.getElementById('resourceDetailsModal'), {
+                backdrop: true,
+                keyboard: true,
+                focus: true
+            });
+            modal.show();
         }
+    });
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var resourceModal = document.getElementById('resourceDetailsModal');
+        resourceModal.addEventListener('hidden.bs.modal', function () {
+            // Remove any lingering modal-backdrop
+            document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                backdrop.parentNode.removeChild(backdrop);
+            });
+            // Remove blur from body if present
+            document.body.classList.remove('modal-open');
+            document.body.style = '';
+        });
     });
     </script>
 </body>

@@ -271,53 +271,76 @@ class ResourceController {
 
     public function getResourceById($resource_id) {
         try {
-            $query = "SELECT lr.*, b.* 
+            $query = "SELECT 
+                        lr.*,
+                        b.author, b.isbn, b.publisher, b.edition, b.publication_date as book_publication_date,
+                        p.volume, p.issue, p.publication_date as periodical_publication_date,
+                        m.media_type, m.runtime, m.format
                      FROM library_resources lr 
                      LEFT JOIN books b ON lr.resource_id = b.resource_id 
+                     LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
+                     LEFT JOIN media_resources m ON lr.resource_id = m.resource_id
                      WHERE lr.resource_id = :resource_id";
+            
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":resource_id", $resource_id);
             $stmt->execute();
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($result) {
+                // Determine resource type and clean up the data
+                if ($result['author'] !== null) {
+                    $result['publication_date'] = $result['book_publication_date'];
+                    unset($result['book_publication_date']);
+                    unset($result['periodical_publication_date']);
+                } elseif ($result['volume'] !== null) {
+                    $result['publication_date'] = $result['periodical_publication_date'];
+                    unset($result['book_publication_date']);
+                    unset($result['periodical_publication_date']);
+                } else {
+                    unset($result['book_publication_date']);
+                    unset($result['periodical_publication_date']);
+                }
+            }
+
+            return $result;
         } catch(PDOException $e) {
+            error_log("Error in getResourceById: " . $e->getMessage());
             return false;
         }
     }
 
     public function getBookStatistics() {
         try {
-            // Total Books
+            // Total Library Materials
             $query_total = "SELECT COUNT(*) as total_books 
-                           FROM library_resources 
-                           WHERE category = 'book'";
+                           FROM library_resources";
             $stmt_total = $this->conn->prepare($query_total);
             $stmt_total->execute();
             $total_books = $stmt_total->fetch(PDO::FETCH_ASSOC)['total_books'];
     
-            // Available Books
+            // Available Materials
             $query_available = "SELECT COUNT(*) as available_books 
                               FROM library_resources 
-                              WHERE category = 'book' 
-                              AND status = 'available'::resource_status";
+                              WHERE status = 'available'::resource_status";
             $stmt_available = $this->conn->prepare($query_available);
             $stmt_available->execute();
             $available_books = $stmt_available->fetch(PDO::FETCH_ASSOC)['available_books'];
     
-            // Borrowed Books
-            $query_borrowed = "SELECT COUNT(*) as borrowed_books 
-                             FROM library_resources 
-                             WHERE category = 'book' 
-                             AND status = 'borrowed'::resource_status";
+            // Borrowed Materials - Count from borrowings table where status is active
+            $query_borrowed = "SELECT COUNT(DISTINCT b.resource_id) as borrowed_books 
+                             FROM borrowings b
+                             WHERE b.status IN ('active'::borrowing_status, 'overdue'::borrowing_status)
+                             AND b.return_date IS NULL";
             $stmt_borrowed = $this->conn->prepare($query_borrowed);
             $stmt_borrowed->execute();
             $borrowed_books = $stmt_borrowed->fetch(PDO::FETCH_ASSOC)['borrowed_books'];
     
-            // Overdue Books
-            $query_overdue = "SELECT COUNT(DISTINCT lr.resource_id) as overdue_books 
-                            FROM library_resources lr
-                            JOIN borrowings b ON lr.resource_id = b.resource_id
-                            WHERE lr.category = 'book' 
-                            AND b.status = 'overdue'::borrowing_status";
+            // Overdue Materials
+            $query_overdue = "SELECT COUNT(DISTINCT b.resource_id) as overdue_books 
+                            FROM borrowings b
+                            WHERE b.status = 'overdue'::borrowing_status
+                            AND b.return_date IS NULL";
             $stmt_overdue = $this->conn->prepare($query_overdue);
             $stmt_overdue->execute();
             $overdue_books = $stmt_overdue->fetch(PDO::FETCH_ASSOC)['overdue_books'];

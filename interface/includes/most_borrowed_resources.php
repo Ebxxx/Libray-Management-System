@@ -227,22 +227,25 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function fetchResourceDetails(resourceId, resourceType) {
+        document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-center">Loading...</div>';
         fetch(`../api/get_resource_details.php?resource_id=${resourceId}&type=${resourceType}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     displayResourceDetails(data.resource);
                 } else {
-                    alert('Error loading resource details');
+                    document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
+            });
     }
 
     function displayResourceDetails(resource) {
-        const statusColor = resource.status.toLowerCase() === 'available' 
+        const statusColor = resource.status && resource.status.toLowerCase() === 'available' 
             ? 'text-success' 
-            : resource.status.toLowerCase() === 'borrowed' 
+            : resource.status && resource.status.toLowerCase() === 'borrowed' 
                 ? 'text-warning' 
                 : 'text-muted';
 
@@ -255,12 +258,13 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="resource-details">
                 <h6 class="fw-bold">Title:</h6>
-                <p>${resource.title}</p>
+                <p>${resource.title || 'N/A'}</p>
                 <h6 class="fw-bold">Category:</h6>
-                <p>${resource.category}</p>
+                <p>${resource.category || 'N/A'}</p>
                 <h6 class="fw-bold">Status:</h6>
-                <p class="fw-bold ${statusColor}">${resource.status.toUpperCase()}</p>`;
+                <p class="fw-bold ${statusColor}">${resource.status ? resource.status.toUpperCase() : 'N/A'}</p>`;
 
+        // Book details
         if (resource.author) {
             detailsHtml += `
                 <h6 class="fw-bold">Author:</h6>
@@ -275,18 +279,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p>${resource.publication_date}</p>`;
         }
 
+        // Periodical details
+        if (resource.volume || resource.issue) {
+            detailsHtml += `
+                <h6 class="fw-bold">Volume:</h6>
+                <p>${resource.volume || 'N/A'}</p>
+                <h6 class="fw-bold">Issue:</h6>
+                <p>${resource.issue || 'N/A'}</p>
+                <h6 class="fw-bold">Publication Date:</h6>
+                <p>${resource.publication_date || 'N/A'}</p>`;
+        }
+
+        // Media details
+        if (resource.media_type || resource.runtime || resource.format) {
+            detailsHtml += `
+                <h6 class="fw-bold">Media Type:</h6>
+                <p>${resource.media_type || 'N/A'}</p>
+                <h6 class="fw-bold">Runtime:</h6>
+                <p>${resource.runtime || 'N/A'}</p>
+                <h6 class="fw-bold">Format:</h6>
+                <p>${resource.format || 'N/A'}</p>`;
+        }
+
         document.getElementById('resourceDetailsContent').innerHTML = detailsHtml;
-        
+        // Only show the modal here!
         const modal = new bootstrap.Modal(document.getElementById('resourceDetailsModal'), {
             backdrop: true,
             keyboard: true,
             focus: true
         });
-        
-        document.getElementById('resourceDetailsModal').addEventListener('show.bs.modal', function () {
-            this.style.transition = 'all .2s ease-out';
-        });
-        
         modal.show();
     }
 });
