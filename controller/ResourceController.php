@@ -13,7 +13,7 @@ class ResourceController {
         try {
             $this->conn->beginTransaction();
 
-            // Validate category
+            // Validate category (as text, not enum)
             $validCategories = ['fiction', 'non-fiction', 'reference', 'academic'];
             $category = strtolower($data['category']);
             if (!in_array($category, $validCategories)) {
@@ -49,14 +49,13 @@ class ResourceController {
 
             // Insert into library_resources with cover_image
             $query = "INSERT INTO library_resources (title, accession_number, category, status, cover_image) 
-                     VALUES (:title, :accession_number, :category, :status, :cover_image) 
+                     VALUES (:title, :accession_number, :category, 'available'::resource_status, :cover_image) 
                      RETURNING resource_id";
             
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(":title", $data['title']);
             $stmt->bindParam(":accession_number", $data['accession_number']);
             $stmt->bindParam(":category", $category);
-            $stmt->bindParam(":status", $status);
             $stmt->bindParam(":cover_image", $cover_image);
             $stmt->execute();
             
@@ -82,20 +81,71 @@ class ResourceController {
         } catch(PDOException $e) {
             $this->conn->rollBack();
             error_log("Error in createResource: " . $e->getMessage());
-            return false;
+            throw new Exception("Failed to create resource: " . $e->getMessage());
         }
     }
 
     public function getResources($type = 'book') {
         try {
-            $query = "SELECT lr.*, b.* 
-                     FROM library_resources lr 
-                     LEFT JOIN books b ON lr.resource_id = b.resource_id 
-                     ORDER BY lr.resource_id DESC";
+            $query = "SELECT 
+                        lr.*,
+                        CASE 
+                            WHEN b.book_id IS NOT NULL THEN json_build_object(
+                                'author', b.author,
+                                'isbn', b.isbn,
+                                'publisher', b.publisher,
+                                'edition', b.edition,
+                                'publication_date', b.publication_date
+                            )
+                            WHEN m.media_id IS NOT NULL THEN json_build_object(
+                                'media_type', m.media_type,
+                                'runtime', m.runtime,
+                                'format', m.format
+                            )
+                            WHEN p.periodical_id IS NOT NULL THEN json_build_object(
+                                'volume', p.volume,
+                                'issue', p.issue,
+                                'publication_date', p.publication_date
+                            )
+                        END as resource_details
+                    FROM library_resources lr 
+                    LEFT JOIN books b ON lr.resource_id = b.resource_id 
+                    LEFT JOIN media_resources m ON lr.resource_id = m.resource_id
+                    LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
+                    WHERE lr.status = 'available'::resource_status
+                    AND NOT EXISTS (
+                        SELECT 1 FROM borrowings br 
+                        WHERE br.resource_id = lr.resource_id 
+                        AND br.status IN ('pending'::borrowing_status, 'active'::borrowing_status, 'overdue'::borrowing_status)
+                    )
+                    AND CASE 
+                        WHEN :type = 'book' THEN b.book_id IS NOT NULL
+                        WHEN :type = 'media' THEN m.media_id IS NOT NULL
+                        WHEN :type = 'periodical' THEN p.periodical_id IS NOT NULL
+                        ELSE true
+                    END
+                    ORDER BY lr.created_at DESC";
+            
             $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':type', $type);
             $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Process the results to flatten the JSON resource_details
+            foreach ($results as &$result) {
+                if (isset($result['resource_details'])) {
+                    $details = json_decode($result['resource_details'], true);
+                    if ($details) {
+                        $result = array_merge($result, $details);
+                    }
+                    unset($result['resource_details']);
+                }
+            }
+            
+            error_log("Retrieved " . count($results) . " resources of type: " . $type);
+            return $results;
         } catch(PDOException $e) {
+            error_log("Error in getResources: " . $e->getMessage());
             return [];
         }
     }
@@ -237,31 +287,37 @@ class ResourceController {
     public function getBookStatistics() {
         try {
             // Total Books
-            $query_total = "SELECT COUNT(*) as total_books FROM library_resources";
+            $query_total = "SELECT COUNT(*) as total_books 
+                           FROM library_resources 
+                           WHERE category = 'book'";
             $stmt_total = $this->conn->prepare($query_total);
             $stmt_total->execute();
             $total_books = $stmt_total->fetch(PDO::FETCH_ASSOC)['total_books'];
     
             // Available Books
             $query_available = "SELECT COUNT(*) as available_books 
-                                FROM library_resources 
-                                WHERE status = 'available'";
+                              FROM library_resources 
+                              WHERE category = 'book' 
+                              AND status = 'available'::resource_status";
             $stmt_available = $this->conn->prepare($query_available);
             $stmt_available->execute();
             $available_books = $stmt_available->fetch(PDO::FETCH_ASSOC)['available_books'];
     
-            // Borrowed Books (based on status)
+            // Borrowed Books
             $query_borrowed = "SELECT COUNT(*) as borrowed_books 
-                               FROM library_resources 
-                               WHERE status = 'borrowed'";
+                             FROM library_resources 
+                             WHERE category = 'book' 
+                             AND status = 'borrowed'::resource_status";
             $stmt_borrowed = $this->conn->prepare($query_borrowed);
             $stmt_borrowed->execute();
             $borrowed_books = $stmt_borrowed->fetch(PDO::FETCH_ASSOC)['borrowed_books'];
     
-            // Overdue Books (if you have a separate tracking mechanism)
-            $query_overdue = "SELECT COUNT(*) as overdue_books 
-                              FROM library_resources 
-                              WHERE status = 'overdue'";
+            // Overdue Books
+            $query_overdue = "SELECT COUNT(DISTINCT lr.resource_id) as overdue_books 
+                            FROM library_resources lr
+                            JOIN borrowings b ON lr.resource_id = b.resource_id
+                            WHERE lr.category = 'book' 
+                            AND b.status = 'overdue'::borrowing_status";
             $stmt_overdue = $this->conn->prepare($query_overdue);
             $stmt_overdue->execute();
             $overdue_books = $stmt_overdue->fetch(PDO::FETCH_ASSOC)['overdue_books'];
@@ -273,6 +329,7 @@ class ResourceController {
                 'overdue_books' => $overdue_books
             ];
         } catch(PDOException $e) {
+            error_log("Error in getBookStatistics: " . $e->getMessage());
             return [
                 'total_books' => 0,
                 'available_books' => 0,

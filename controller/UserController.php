@@ -60,8 +60,8 @@ class UserController {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
             error_log("Query result: " . print_r($user, true));
             
-            // Check if user exists and verify password (plain text comparison)
-            if ($user && $password === $user['password']) {
+            // Check if user exists and verify password
+            if ($user && password_verify($password, $user['password'])) {
                 Session::start();
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['username'] = $user['username'];
@@ -124,10 +124,13 @@ class UserController {
                       VALUES (:membership_id, :username, :password, :first_name, :last_name, :email, :role, :max_books, :borrowing_days_limit)";
             $stmt = $this->conn->prepare($query);
     
+            // Hash the password before storing
+            $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+    
             // Bind parameters
             $stmt->bindParam(":membership_id", $data['membership_id']);
             $stmt->bindParam(":username", $data['username']);
-            $stmt->bindParam(":password", $data['password']); // Plain text password
+            $stmt->bindParam(":password", $hashedPassword); // Store hashed password
             $stmt->bindParam(":first_name", $data['first_name']);
             $stmt->bindParam(":last_name", $data['last_name']);
             $stmt->bindParam(":email", $data['email']);
@@ -173,6 +176,7 @@ class UserController {
 
     public function updateUser($userId, $data) {
         try {
+            // Start building the update query
             $query = "UPDATE users SET 
                      username = :username,
                      first_name = :first_name,
@@ -180,12 +184,19 @@ class UserController {
                      email = :email,
                      role = :role,
                      max_books = :max_books,
-                     borrowing_days_limit = :borrowing_days_limit,
-                     updated_at = CURRENT_TIMESTAMP
+                     borrowing_days_limit = :borrowing_days_limit";
+
+            // Add password to update if it's provided
+            if (!empty($data['password'])) {
+                $query .= ", password = :password";
+            }
+
+            $query .= ", updated_at = CURRENT_TIMESTAMP
                      WHERE user_id = :user_id";
 
             $stmt = $this->conn->prepare($query);
             
+            // Bind basic parameters
             $stmt->bindParam(":username", $data['username']);
             $stmt->bindParam(":first_name", $data['first_name']);
             $stmt->bindParam(":last_name", $data['last_name']);
@@ -194,6 +205,12 @@ class UserController {
             $stmt->bindParam(":max_books", $data['max_books']);
             $stmt->bindParam(":borrowing_days_limit", $data['borrowing_days_limit']);
             $stmt->bindParam(":user_id", $userId);
+
+            // Bind password if provided
+            if (!empty($data['password'])) {
+                $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+                $stmt->bindParam(":password", $hashedPassword);
+            }
 
             if ($stmt->execute()) {
                 return true;

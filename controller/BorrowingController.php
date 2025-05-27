@@ -15,29 +15,39 @@ class BorrowingController {
         try {
             $this->conn->beginTransaction();
             
-            // Get user's borrowing days limit
-            $stmt = $this->conn->prepare("SELECT borrowing_days_limit FROM users WHERE user_id = :user_id");
-            $stmt->bindParam(':user_id', $userId);
-            $stmt->execute();
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            $borrowingDaysLimit = $user['borrowing_days_limit'] ?? 7; // Default to 7 if not set
-            
-            // Calculate due date based on user's borrowing days limit
-            $dueDate = date('Y-m-d', strtotime("+{$borrowingDaysLimit} days"));
-            
-            // Check if resource is available
-            $stmt = $this->conn->prepare("SELECT status FROM library_resources WHERE resource_id = :resource_id");
+            // First check if the resource exists and is available
+            $stmt = $this->conn->prepare("
+                SELECT status 
+                FROM library_resources 
+                WHERE resource_id = :resource_id
+            ");
             $stmt->bindParam(":resource_id", $resourceId);
             $stmt->execute();
             $resource = $stmt->fetch(PDO::FETCH_ASSOC);
             
+            if (!$resource) {
+                throw new Exception('Resource not found.');
+            }
+
             if ($resource['status'] !== 'available') {
-                $this->conn->rollBack();
-                return [
-                    'success' => false,
-                    'message' => 'This resource is not available for borrowing.'
-                ];
+                throw new Exception('This resource is not available for borrowing.');
+            }
+
+            // Check if user already has a pending request for this resource
+            $stmt = $this->conn->prepare("
+                SELECT COUNT(*) as pending_count 
+                FROM borrowings 
+                WHERE user_id = :user_id 
+                AND resource_id = :resource_id 
+                AND status = 'pending'::borrowing_status
+            ");
+            $stmt->bindParam(":user_id", $userId);
+            $stmt->bindParam(":resource_id", $resourceId);
+            $stmt->execute();
+            $pendingCheck = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($pendingCheck['pending_count'] > 0) {
+                throw new Exception('You already have a pending request for this resource.');
             }
 
             // Check user's current active borrowings against their limit
@@ -47,7 +57,7 @@ class BorrowingController {
                     u.max_books
                 FROM users u
                 LEFT JOIN borrowings b ON u.user_id = b.user_id 
-                AND b.status IN ('active', 'overdue', 'pending')
+                AND b.status IN ('active'::borrowing_status, 'overdue'::borrowing_status, 'pending'::borrowing_status)
                 WHERE u.user_id = :user_id
                 GROUP BY u.user_id, u.max_books
             ");
@@ -55,46 +65,47 @@ class BorrowingController {
             $stmt->execute();
             $borrowingInfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($borrowingInfo['active_borrowings'] >= $borrowingInfo['max_books']) {
-                $this->conn->rollBack();
-                return [
-                    'success' => false,
-                    'message' => 'You have reached your maximum borrowing limit of ' . $borrowingInfo['max_books'] . ' items.'
-                ];
+            if ($borrowingInfo && $borrowingInfo['active_borrowings'] >= $borrowingInfo['max_books']) {
+                throw new Exception('You have reached your maximum borrowing limit of ' . $borrowingInfo['max_books'] . ' items.');
             }
             
             // Create pending borrowing request
-            $stmt = $this->conn->prepare("INSERT INTO borrowings (user_id, resource_id, status) 
-                                        VALUES (:user_id, :resource_id, 'pending')");
+            $stmt = $this->conn->prepare("
+                INSERT INTO borrowings (user_id, resource_id, status, borrow_date) 
+                VALUES (:user_id, :resource_id, 'pending'::borrowing_status, CURRENT_TIMESTAMP)
+            ");
             $stmt->bindParam(":user_id", $userId);
             $stmt->bindParam(":resource_id", $resourceId);
             
-            if ($stmt->execute()) {
-                // Update resource status to pending
-                $stmt = $this->conn->prepare("UPDATE library_resources 
-                                            SET status = 'pending' 
-                                            WHERE resource_id = :resource_id");
-                $stmt->bindParam(":resource_id", $resourceId);
-                $stmt->execute();
-                
-                $this->conn->commit();
-                return [
-                    'success' => true,
-                    'message' => 'Resource borrowing request submitted successfully.'
-                ];
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to create borrowing request.');
+            }
+
+            // Update resource status to borrowed since it's now in the borrowing process
+            $stmt = $this->conn->prepare("
+                UPDATE library_resources 
+                SET status = 'borrowed'::resource_status 
+                WHERE resource_id = :resource_id
+            ");
+            $stmt->bindParam(":resource_id", $resourceId);
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to update resource status.');
             }
             
-            $this->conn->rollBack();
+            $this->conn->commit();
             return [
-                'success' => false,
-                'message' => 'Failed to submit borrowing request.'
+                'success' => true,
+                'message' => 'Resource borrowing request submitted successfully.'
             ];
-        } catch(PDOException $e) {
-            $this->conn->rollBack();
+
+        } catch(Exception $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Borrow resource error: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'An error occurred while processing your request.'
+                'message' => $e->getMessage()
             ];
         }
     }
@@ -142,7 +153,7 @@ class BorrowingController {
             // Update resource status
             $updateResourceStmt = $this->conn->prepare("
                 UPDATE library_resources 
-                SET status = 'borrowed' 
+                SET status = 'borrowed'::resource_status 
                 WHERE resource_id = :resource_id
             ");
             $updateResourceStmt->bindParam(':resource_id', $borrowing['resource_id']);
@@ -194,21 +205,33 @@ class BorrowingController {
             $this->conn->beginTransaction();
 
             // Get borrowing details with resource type
-            $borrow_query = "SELECT b.*, lr.category as resource_type 
-                            FROM borrowings b
-                            JOIN library_resources lr ON b.resource_id = lr.resource_id
-                            WHERE b.borrowing_id = :borrowing_id 
-                            AND b.status IN ('active', 'overdue')";
+            $borrow_query = "SELECT 
+                b.*, 
+                lr.category,
+                CASE 
+                    WHEN b2.book_id IS NOT NULL THEN 'book'
+                    WHEN m.media_id IS NOT NULL THEN 'media'
+                    WHEN p.periodical_id IS NOT NULL THEN 'periodical'
+                    ELSE lr.category
+                END as resource_type
+                FROM borrowings b
+                JOIN library_resources lr ON b.resource_id = lr.resource_id
+                LEFT JOIN books b2 ON lr.resource_id = b2.resource_id
+                LEFT JOIN media_resources m ON lr.resource_id = m.resource_id
+                LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
+                WHERE b.borrowing_id = :borrowing_id 
+                AND b.status IN ('active'::borrowing_status, 'overdue'::borrowing_status)";
+            
             $stmt = $this->conn->prepare($borrow_query);
             $stmt->bindParam(":borrowing_id", $borrowing_id);
             $stmt->execute();
             $borrowing = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$borrowing) {
-                throw new Exception("Borrowing record not found");
+                throw new Exception("Borrowing record not found or not in active/overdue status");
             }
 
-            // Get fine configuration
+            // Get fine configuration based on resource type
             $fine_query = "SELECT fine_amount 
                           FROM fine_configurations 
                           WHERE resource_type = :resource_type";
@@ -219,6 +242,7 @@ class BorrowingController {
 
             // Debug log
             error_log("Resource Type: " . $borrowing['resource_type']);
+            error_log("Category: " . $borrowing['category']);
             error_log("Fine Config: " . print_r($fine_config, true));
 
             $fine_rate = $fine_config ? $fine_config['fine_amount'] : 1.00;
@@ -235,13 +259,12 @@ class BorrowingController {
 
             // Update borrowing record
             $return_query = "UPDATE borrowings 
-                             SET return_date = :return_date, 
-                                 status = 'returned', 
+                             SET return_date = CURRENT_TIMESTAMP, 
+                                 status = 'returned'::borrowing_status, 
                                  fine_amount = :fine_amount,
                                  returned_by = :staff_id
                              WHERE borrowing_id = :borrowing_id";
             $stmt = $this->conn->prepare($return_query);
-            $stmt->bindParam(":return_date", $current_date);
             $stmt->bindParam(":fine_amount", $fine_amount);
             $stmt->bindParam(":borrowing_id", $borrowing_id);
             $stmt->bindParam(":staff_id", $_SESSION['user_id']);
@@ -249,7 +272,7 @@ class BorrowingController {
     
             // Update resource status back to available
             $update_query = "UPDATE library_resources 
-                             SET status = 'available' 
+                             SET status = 'available'::resource_status 
                              WHERE resource_id = :resource_id";
             $stmt = $this->conn->prepare($update_query);
             $stmt->bindParam(":resource_id", $borrowing['resource_id']);
@@ -265,12 +288,11 @@ class BorrowingController {
             ];
         } catch (Exception $e) {
             // Rollback transaction
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             error_log("Return resource error: " . $e->getMessage());
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            throw new Exception("Failed to return resource: " . $e->getMessage());
         }
     }
 
@@ -439,37 +461,34 @@ class BorrowingController {
             return [];
         }
     }
-    public function getOverdueBorrowings() {
+
+    private function updateOverdueStatus() {
         try {
-            $query = "SELECT 
-                        b.borrowing_id, 
-                        b.borrow_date, 
-                        b.due_date, 
-                        u.first_name, 
-                        u.last_name, 
-                        u.email, 
-                        u.role,
-                        lr.title AS resource_title,
-                        lr.category AS resource_type,
-                        DATEDIFF(CURRENT_DATE, b.due_date) as days_overdue,
-                        fc.fine_amount as daily_fine_rate,
-                        DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount as fine_amount
-                    FROM borrowings b
-                    JOIN users u ON b.user_id = u.user_id
-                    JOIN library_resources lr ON b.resource_id = lr.resource_id
-                    JOIN fine_configurations fc ON lr.category = fc.resource_type
-                    WHERE b.status = 'overdue' 
-                        OR (b.status = 'active' AND b.due_date < CURRENT_DATE)
-                    ORDER BY b.due_date ASC";
+            // Update status to overdue for items past due date
+            $updateQuery = "
+                UPDATE borrowings 
+                SET status = 'overdue'::borrowing_status
+                WHERE status = 'active'::borrowing_status 
+                AND due_date < CURRENT_TIMESTAMP
+                AND return_date IS NULL
+                RETURNING borrowing_id, due_date";
             
-            $stmt = $this->conn->prepare($query);
+            $stmt = $this->conn->prepare($updateQuery);
             $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $updatedItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Updated " . count($updatedItems) . " items to overdue status");
+            foreach ($updatedItems as $item) {
+                error_log("Updated borrowing_id: " . $item['borrowing_id'] . " to overdue. Due date was: " . $item['due_date']);
+            }
+            
+            return true;
         } catch (PDOException $e) {
-            error_log("Get overdue borrowings error: " . $e->getMessage());
-            return [];
+            error_log("Error updating overdue status: " . $e->getMessage());
+            return false;
         }
     }
+
 
     // Add new method to manage fine configurations
     public function updateFineConfiguration($resource_type, $fine_amount) {
@@ -537,7 +556,7 @@ class BorrowingController {
                     FROM borrowings b
                     JOIN users u ON b.user_id = u.user_id
                     JOIN library_resources lr ON b.resource_id = lr.resource_id
-                    WHERE b.status = 'pending'
+                    WHERE b.status = 'pending'::borrowing_status
                     ORDER BY b.borrow_date ASC";
             
             $stmt = $this->conn->prepare($query);
@@ -565,7 +584,7 @@ class BorrowingController {
                     JOIN users u_borrower ON b.user_id = u_borrower.user_id
                     JOIN users u_staff ON b.approved_by = u_staff.user_id
                     JOIN library_resources lr ON b.resource_id = lr.resource_id
-                    WHERE b.status = 'active'
+                    WHERE b.status = 'active'::borrowing_status
                     AND b.approved_at IS NOT NULL
                     ORDER BY b.approved_at DESC
                     LIMIT 10";
@@ -619,17 +638,17 @@ class BorrowingController {
     public function getAvailableAndPendingBooks($userId) {
         try {
             $query = "SELECT DISTINCT lr.*, bb.*,
-                      CASE WHEN b.status = 'pending' AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
+                      CASE WHEN b.status = 'pending'::borrowing_status AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
                       FROM library_resources lr
                       LEFT JOIN books bb ON lr.resource_id = bb.resource_id
                       LEFT JOIN (
                           SELECT resource_id, status, user_id 
                           FROM borrowings 
-                          WHERE user_id = :user_id AND status = 'pending'
+                          WHERE user_id = :user_id AND status = 'pending'::borrowing_status
                       ) b ON lr.resource_id = b.resource_id
                       WHERE lr.category = 'book' 
-                      AND (lr.status = 'available' 
-                          OR (b.status = 'pending' AND b.user_id = :user_id))
+                      AND (lr.status = 'available'::resource_status 
+                          OR (b.status = 'pending'::borrowing_status AND b.user_id = :user_id))
                       GROUP BY lr.resource_id";
             
             $stmt = $this->conn->prepare($query);
@@ -645,17 +664,17 @@ class BorrowingController {
     public function getAvailableAndPendingMedia($userId) {
         try {
             $query = "SELECT DISTINCT lr.*, mr.*,
-                      CASE WHEN b.status = 'pending' AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
+                      CASE WHEN b.status = 'pending'::borrowing_status AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
                       FROM library_resources lr
                       LEFT JOIN media_resources mr ON lr.resource_id = mr.resource_id
                       LEFT JOIN (
                           SELECT resource_id, status, user_id 
                           FROM borrowings 
-                          WHERE user_id = :user_id AND status = 'pending'
+                          WHERE user_id = :user_id AND status = 'pending'::borrowing_status
                       ) b ON lr.resource_id = b.resource_id
                       WHERE lr.category = 'media' 
-                      AND (lr.status = 'available' 
-                          OR (b.status = 'pending' AND b.user_id = :user_id))
+                      AND (lr.status = 'available'::resource_status 
+                          OR (b.status = 'pending'::borrowing_status AND b.user_id = :user_id))
                       GROUP BY lr.resource_id";
             
             $stmt = $this->conn->prepare($query);
@@ -671,17 +690,17 @@ class BorrowingController {
     public function getAvailableAndPendingPeriodicals($userId) {
         try {
             $query = "SELECT DISTINCT lr.*, p.*,
-                      CASE WHEN b.status = 'pending' AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
+                      CASE WHEN b.status = 'pending'::borrowing_status AND b.user_id = :user_id THEN 1 ELSE 0 END as pending
                       FROM library_resources lr
                       LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
                       LEFT JOIN (
                           SELECT resource_id, status, user_id 
                           FROM borrowings 
-                          WHERE user_id = :user_id AND status = 'pending'
+                          WHERE user_id = :user_id AND status = 'pending'::borrowing_status
                       ) b ON lr.resource_id = b.resource_id
                       WHERE lr.category = 'periodical' 
-                      AND (lr.status = 'available' 
-                          OR (b.status = 'pending' AND b.user_id = :user_id))
+                      AND (lr.status = 'available'::resource_status 
+                          OR (b.status = 'pending'::borrowing_status AND b.user_id = :user_id))
                       GROUP BY lr.resource_id";
             
             $stmt = $this->conn->prepare($query);
@@ -696,45 +715,208 @@ class BorrowingController {
 
     public function displayBorrowingHistory($user_id) {
         try {
-            // Modified query to include overdue calculation
-            $query = "SELECT 
-                        b.borrowing_id,
-                        lr.title,
-                        b.borrow_date,
-                        b.due_date,
-                        b.return_date,
-                        b.status,
-                        b.fine_amount,
-                        CASE 
-                            WHEN b.return_date IS NULL AND CURRENT_DATE > b.due_date THEN 'overdue'
-                            WHEN b.return_date IS NOT NULL THEN 'returned'
-                            ELSE 'active'
-                        END as current_status,
-                        CASE 
-                            WHEN b.return_date IS NULL AND CURRENT_DATE > b.due_date 
-                            THEN DATEDIFF(CURRENT_DATE, b.due_date)
-                            ELSE 0
-                        END as days_overdue,
-                        fc.fine_amount as daily_fine_rate,
-                        CASE 
-                            WHEN b.return_date IS NULL AND CURRENT_DATE > b.due_date 
-                            THEN DATEDIFF(CURRENT_DATE, b.due_date) * fc.fine_amount
-                            ELSE b.fine_amount
-                        END as calculated_fine
-                    FROM borrowings b
-                    JOIN library_resources lr ON b.resource_id = lr.resource_id
-                    JOIN fine_configurations fc ON lr.category = fc.resource_type
-                    WHERE b.user_id = :user_id
-                    ORDER BY b.borrow_date DESC";
+            $query = "WITH resource_types AS (
+                SELECT 
+                    lr.resource_id,
+                    CASE 
+                        WHEN b.book_id IS NOT NULL THEN 'book'
+                        WHEN m.media_id IS NOT NULL THEN 'media'
+                        WHEN p.periodical_id IS NOT NULL THEN 'periodical'
+                        ELSE 'unknown'
+                    END as resource_type
+                FROM library_resources lr
+                LEFT JOIN books b ON lr.resource_id = b.resource_id
+                LEFT JOIN media_resources m ON lr.resource_id = m.resource_id
+                LEFT JOIN periodicals p ON lr.resource_id = p.resource_id
+            )
+            SELECT 
+                b.borrowing_id,
+                lr.title,
+                lr.category,
+                rt.resource_type,
+                b.borrow_date,
+                b.due_date,
+                b.return_date,
+                b.status::text as status,
+                b.fine_amount,
+                CASE 
+                    WHEN b.return_date IS NOT NULL THEN 'returned'
+                    WHEN b.status = 'overdue'::borrowing_status THEN 'overdue'
+                    WHEN CURRENT_TIMESTAMP > b.due_date THEN 'overdue'
+                    ELSE 'active'
+                END as current_status,
+                CASE 
+                    WHEN b.return_date IS NOT NULL THEN 
+                        GREATEST(0, EXTRACT(DAY FROM (b.return_date - b.due_date))::integer)
+                    WHEN CURRENT_TIMESTAMP > b.due_date THEN 
+                        EXTRACT(DAY FROM (CURRENT_TIMESTAMP - b.due_date))::integer
+                    ELSE 0
+                END as days_overdue,
+                fc.fine_amount as daily_fine_rate,
+                CASE 
+                    WHEN b.return_date IS NOT NULL THEN 
+                        COALESCE(b.fine_amount, 0)
+                    WHEN CURRENT_TIMESTAMP > b.due_date THEN 
+                        GREATEST(
+                            COALESCE(b.fine_amount, 0),
+                            EXTRACT(DAY FROM (CURRENT_TIMESTAMP - b.due_date))::integer * COALESCE(fc.fine_amount, 0)
+                        )
+                    ELSE COALESCE(b.fine_amount, 0)
+                END as calculated_fine
+            FROM borrowings b
+            JOIN library_resources lr ON b.resource_id = lr.resource_id
+            JOIN resource_types rt ON rt.resource_id = lr.resource_id
+            LEFT JOIN fine_configurations fc ON rt.resource_type = fc.resource_type
+            WHERE b.user_id = :user_id
+            ORDER BY 
+                CASE 
+                    WHEN b.status = 'overdue'::borrowing_status THEN 1
+                    WHEN b.status = 'active'::borrowing_status AND CURRENT_TIMESTAMP > b.due_date THEN 2
+                    WHEN b.status = 'active'::borrowing_status THEN 3
+                    ELSE 4
+                END,
+                b.due_date ASC";
             
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':user_id', $user_id);
             $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Post-process the results to ensure proper formatting
+            foreach ($results as &$result) {
+                // Ensure dates are in proper format
+                $result['borrow_date'] = date('Y-m-d H:i:s', strtotime($result['borrow_date']));
+                $result['due_date'] = date('Y-m-d H:i:s', strtotime($result['due_date']));
+                if ($result['return_date']) {
+                    $result['return_date'] = date('Y-m-d H:i:s', strtotime($result['return_date']));
+                }
+                
+                // Ensure numeric values are properly formatted
+                $result['days_overdue'] = (int)$result['days_overdue'];
+                $result['calculated_fine'] = (float)$result['calculated_fine'];
+                $result['daily_fine_rate'] = (float)$result['daily_fine_rate'];
+            }
+            
+            error_log("Retrieved borrowing history for user " . $user_id . ": " . count($results) . " records");
+            return $results;
             
         } catch (PDOException $e) {
             error_log("Error in borrowing history: " . $e->getMessage());
             return false;
+        }
+    }
+
+    public function getOverdueBorrowings() {
+        try {
+            // First, update any active borrowings that are now overdue
+            $updateQuery = "
+                UPDATE borrowings 
+                SET status = 'overdue'::borrowing_status
+                WHERE status = 'active'::borrowing_status 
+                AND due_date < CURRENT_TIMESTAMP 
+                AND return_date IS NULL
+                RETURNING borrowing_id, due_date";
+            
+            $stmt = $this->conn->prepare($updateQuery);
+            $stmt->execute();
+            $updatedItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Updated " . count($updatedItems) . " items to overdue status");
+            foreach ($updatedItems as $item) {
+                error_log("Updated borrowing_id: " . $item['borrowing_id'] . " to overdue. Due date was: " . $item['due_date']);
+            }
+
+            // Now fetch all overdue items with PostgreSQL syntax
+            $query = "
+                WITH overdue_items AS (
+                    SELECT 
+                        b.borrowing_id,
+                        b.borrow_date,
+                        b.due_date,
+                        b.status,
+                        COALESCE(b.fine_amount, 0) as current_fine,
+                        u.user_id,
+                        u.first_name,
+                        u.last_name,
+                        u.email,
+                        u.role,
+                        u.membership_id,
+                        lr.resource_id,
+                        lr.title as resource_title,
+                        lr.category as resource_type,
+                        lr.accession_number,
+                        COALESCE(fc.fine_amount, 1.00) as daily_fine_rate,
+                        EXTRACT(DAY FROM (CURRENT_TIMESTAMP - b.due_date))::integer as days_overdue,
+                        GREATEST(
+                            COALESCE(b.fine_amount, 0),
+                            EXTRACT(DAY FROM (CURRENT_TIMESTAMP - b.due_date))::integer * COALESCE(fc.fine_amount, 1.00)
+                        ) as calculated_fine,
+                        COALESCE(
+                            (SELECT SUM(fp.amount_paid) 
+                             FROM fine_payments fp 
+                             WHERE fp.borrowing_id = b.borrowing_id 
+                             AND fp.payment_status = 'paid'::payment_status), 
+                            0
+                        ) as total_paid
+                    FROM borrowings b
+                    JOIN users u ON b.user_id = u.user_id
+                    JOIN library_resources lr ON b.resource_id = lr.resource_id
+                    LEFT JOIN fine_configurations fc ON lr.category = fc.resource_type
+                    WHERE b.status IN ('overdue'::borrowing_status, 'active'::borrowing_status)
+                    AND b.return_date IS NULL
+                    AND CURRENT_TIMESTAMP > b.due_date
+                )
+                SELECT * FROM overdue_items
+                ORDER BY due_date ASC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute();
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Log the results for debugging
+            error_log("Found " . count($results) . " overdue items");
+            if (!empty($results)) {
+                foreach ($results as $item) {
+                    error_log(sprintf(
+                        "Overdue item: ID=%d, Title=%s, Due=%s, Status=%s, Days=%d, Fine=$%.2f",
+                        $item['borrowing_id'],
+                        $item['resource_title'],
+                        $item['due_date'],
+                        $item['status'],
+                        $item['days_overdue'],
+                        $item['calculated_fine']
+                    ));
+                }
+            } else {
+                error_log("No overdue items found. Checking if there are any active borrowings...");
+                // Debug query to check for active borrowings
+                $debugQuery = "
+                    SELECT COUNT(*) as count 
+                    FROM borrowings 
+                    WHERE status = 'active'::borrowing_status 
+                    AND return_date IS NULL";
+                $debugStmt = $this->conn->prepare($debugQuery);
+                $debugStmt->execute();
+                $debugResult = $debugStmt->fetch(PDO::FETCH_ASSOC);
+                error_log("Active borrowings count: " . $debugResult['count']);
+                
+                // Check for borrowings with past due dates
+                $debugQuery2 = "
+                    SELECT COUNT(*) as count 
+                    FROM borrowings 
+                    WHERE due_date < CURRENT_TIMESTAMP 
+                    AND return_date IS NULL";
+                $debugStmt2 = $this->conn->prepare($debugQuery2);
+                $debugStmt2->execute();
+                $debugResult2 = $debugStmt2->fetch(PDO::FETCH_ASSOC);
+                error_log("Past due borrowings count: " . $debugResult2['count']);
+            }
+
+            return $results;
+        } catch (PDOException $e) {
+            error_log("Error in getOverdueBorrowings: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            return [];
         }
     }
 }

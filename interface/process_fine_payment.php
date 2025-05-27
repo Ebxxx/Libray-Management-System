@@ -1,6 +1,7 @@
 <?php
 require_once '../controller/Session.php';
 require_once '../config/Database.php';
+require_once '../controller/BorrowingController.php';
 
 // Start the session and check login status
 Session::start();
@@ -11,138 +12,115 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] !== 'admin' && $_SESSION[
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $borrowing_id = $_POST['borrowing_id'] ?? '';
-    $calculated_fine = $_POST['calculated_fine'] ?? 0;
-    $amount_paid = $_POST['amount_paid'] ?? 0;
-    $cash_received = $_POST['cash_received'] ?? 0;
-    $change_amount = $cash_received - $amount_paid;
-    $payment_notes = $_POST['payment_notes'] ?? '';
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-    if (empty($borrowing_id) || empty($amount_paid) || empty($cash_received)) {
-        $_SESSION['error'] = "Missing required information";
-        header("Location: overdue-management.php");
-        exit();
+try {
+    // Validate input
+    if (!isset($_POST['borrowing_id']) || !isset($_POST['amount_paid']) || !isset($_POST['cash_received'])) {
+        throw new Exception('Missing required payment information');
+    }
+
+    $borrowing_id = filter_var($_POST['borrowing_id'], FILTER_VALIDATE_INT);
+    $amount_paid = filter_var($_POST['amount_paid'], FILTER_VALIDATE_FLOAT);
+    $cash_received = filter_var($_POST['cash_received'], FILTER_VALIDATE_FLOAT);
+    $payment_notes = isset($_POST['payment_notes']) ? trim($_POST['payment_notes']) : '';
+
+    if (!$borrowing_id || !$amount_paid || !$cash_received) {
+        throw new Exception('Invalid payment information');
     }
 
     if ($cash_received < $amount_paid) {
-        $_SESSION['error'] = "Insufficient cash received";
-        header("Location: overdue-management.php");
-        exit();
+        throw new Exception('Cash received is less than the amount to be paid');
     }
 
-    try {
-        $conn = (new Database())->getConnection();
-        
-        // Start transaction
-        $conn->beginTransaction();
+    // Get database connection
+    $database = new Database();
+    $conn = $database->getConnection();
 
-        // Insert payment record
-        $insertPayment = $conn->prepare("
-            INSERT INTO fine_payments (
-                borrowing_id, 
-                amount_paid,
-                cash_received,
-                change_amount, 
-                payment_status,
-                processed_by,
-                payment_notes
-            ) VALUES (
-                :borrowing_id, 
-                :amount_paid,
-                :cash_received,
-                :change_amount,
-                'paid',
-                :processed_by,
-                :payment_notes
-            )
-        ");
-        
-        $insertPayment->execute([
-            ':borrowing_id' => $borrowing_id,
-            ':amount_paid' => $amount_paid,
-            ':cash_received' => $cash_received,
-            ':change_amount' => $change_amount,
-            ':processed_by' => $_SESSION['user_id'],
-            ':payment_notes' => $payment_notes
-        ]);
+    // Begin transaction
+    $conn->beginTransaction();
 
-        // Update borrowing record
-        $updateBorrowing = $conn->prepare("
-            UPDATE borrowings b
-            SET fine_amount = (
-                SELECT 
-                    CASE 
-                        WHEN DATEDIFF(CURRENT_DATE, b2.due_date) > 0 
-                        THEN DATEDIFF(CURRENT_DATE, b2.due_date) * fc.fine_amount 
-                        ELSE 0 
-                    END - COALESCE((
-                        SELECT SUM(fp.amount_paid) 
-                        FROM fine_payments fp 
-                        WHERE fp.borrowing_id = b2.borrowing_id 
-                        AND fp.payment_status = 'paid'
-                    ), 0)
-                FROM borrowings b2
-                JOIN library_resources lr ON b2.resource_id = lr.resource_id
-                JOIN fine_configurations fc ON lr.category = fc.resource_type
-                WHERE b2.borrowing_id = b.borrowing_id
-            ),
-            status = CASE 
-                WHEN (
-                    SELECT 
-                        CASE 
-                            WHEN DATEDIFF(CURRENT_DATE, b2.due_date) > 0 
-                            THEN DATEDIFF(CURRENT_DATE, b2.due_date) * fc.fine_amount 
-                            ELSE 0 
-                        END - COALESCE((
-                            SELECT SUM(fp.amount_paid) 
-                            FROM fine_payments fp 
-                            WHERE fp.borrowing_id = b2.borrowing_id 
-                            AND fp.payment_status = 'paid'
-                        ), 0)
-                    FROM borrowings b2
-                    JOIN library_resources lr ON b2.resource_id = lr.resource_id
-                    JOIN fine_configurations fc ON lr.category = fc.resource_type
-                    WHERE b2.borrowing_id = b.borrowing_id
-                ) <= 0 THEN 
-                    CASE 
-                        WHEN return_date IS NOT NULL THEN 'returned'
-                        ELSE 'active'
-                    END
-                ELSE status 
-            END
-            WHERE borrowing_id = :borrowing_id
-        ");
-        
-        $updateBorrowing->execute([
-            ':borrowing_id' => $borrowing_id
-        ]);
+    // Insert payment record
+    $change_amount = $cash_received - $amount_paid;
 
-        // Log the activity
-        $logActivity = $conn->prepare("
-            INSERT INTO activity_logs (user_id, action_type, action_description, ip_address)
-            VALUES (:user_id, 'fine_payment', :description, :ip_address)
-        ");
-        
-        $logActivity->execute([
-            ':user_id' => $_SESSION['user_id'],
-            ':description' => "Processed fine payment of $" . number_format($amount_paid, 2) . " for borrowing ID: " . $borrowing_id,
-            ':ip_address' => $_SERVER['REMOTE_ADDR']
-        ]);
+    $payment_query = "INSERT INTO fine_payments (
+        borrowing_id,
+        amount_paid,
+        cash_received,
+        change_amount,
+        payment_date,
+        payment_status,
+        payment_notes,
+        processed_by
+    ) VALUES (
+        :borrowing_id,
+        :amount_paid,
+        :cash_received,
+        :change_amount,
+        CURRENT_TIMESTAMP,
+        'paid'::payment_status,
+        :payment_notes,
+        :processed_by
+    )";
 
-        // Commit transaction
-        $conn->commit();
+    $stmt = $conn->prepare($payment_query);
+    $stmt->bindParam(':borrowing_id', $borrowing_id);
+    $stmt->bindParam(':amount_paid', $amount_paid);
+    $stmt->bindParam(':cash_received', $cash_received);
+    $stmt->bindParam(':change_amount', $change_amount);
+    $stmt->bindParam(':payment_notes', $payment_notes);
+    $stmt->bindParam(':processed_by', $_SESSION['user_id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception('Failed to record payment');
+    }
 
-        $_SESSION['success'] = "Payment processed successfully";
-    } catch (PDOException $e) {
-        // Rollback transaction on error
+    // Update borrowing record with new fine amount
+    $update_query = "UPDATE borrowings 
+                    SET fine_amount = COALESCE(fine_amount, 0) + :amount_paid
+                    WHERE borrowing_id = :borrowing_id";
+    
+    $stmt = $conn->prepare($update_query);
+    $stmt->bindParam(':amount_paid', $amount_paid);
+    $stmt->bindParam(':borrowing_id', $borrowing_id);
+    
+    if (!$stmt->execute()) {
+        throw new Exception('Failed to update borrowing record');
+    }
+
+    // Log the activity
+    $activityLogger = new ActivityLogController();
+    $description = sprintf(
+        "Fine payment processed - Amount: $%.2f, Borrowing ID: %d",
+        $amount_paid,
+        $borrowing_id
+    );
+    $activityLogger->logActivity($_SESSION['user_id'], 'fine_payment', $description);
+
+    // Commit transaction
+    $conn->commit();
+
+    // Return success response
+    echo json_encode([
+        'success' => true,
+        'message' => 'Payment processed successfully',
+        'amount_paid' => $amount_paid,
+        'change' => $change_amount
+    ]);
+
+} catch (Exception $e) {
+    // Rollback transaction if active
+    if (isset($conn) && $conn->inTransaction()) {
         $conn->rollBack();
-        error_log("Payment processing error: " . $e->getMessage());
-        $_SESSION['error'] = "Error processing payment. Please try again.";
     }
-} else {
-    $_SESSION['error'] = "Invalid request method";
-}
 
-header("Location: overdue-management.php");
-exit();
+    // Return error response
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
+}
+?>

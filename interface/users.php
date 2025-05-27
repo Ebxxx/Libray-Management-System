@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Handle password
             if (!empty($_POST['password'])) {
-                $userData['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                $userData['password'] = $_POST['password']; // Remove password_hash here as it's handled in UserController
             }
 
             if (isset($_POST['user_id']) && !empty($_POST['user_id'])) {
