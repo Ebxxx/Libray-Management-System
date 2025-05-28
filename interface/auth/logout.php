@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../controller/ActivityLogController.php';
+require_once '../../controller/ActivityLogController.php';
 
 if (isset($_SESSION['user_id'])) {
     $activityLogController = new ActivityLogController();

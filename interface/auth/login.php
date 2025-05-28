@@ -1,16 +1,16 @@
 <?php
-require_once '../controller/UserController.php';
+require_once __DIR__ . '/../../controller/UserController.php';
 session_start();
 
 if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
+    header("Location: ../dashboard.php");
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userController = new UserController();
     if ($userController->login($_POST['username'], $_POST['password'])) {
-        header("Location: dashboard.php");
+        header("Location: ../dashboard.php");
         exit();
     } else {
         $error_message = "Invalid username or password";
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="w-full min-h-screen flex">
         <!-- Left side with illustration -->
         <div class="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 overflow-hidden" 
-             style="background-image: url('../uploads/images/library-illustration.jpg'); 
+             style="background-image: url('../../uploads/images/library-illustration.jpg'); 
                     background-size: cover; 
                     background-position: center;
                     background-repeat: no-repeat;">
