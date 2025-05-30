@@ -1,11 +1,11 @@
 <?php
-require_once '../controller/Session.php';
-require_once '../controller/BorrowingController.php';
-require_once '../controller/ResourceController.php';
-require_once '../controller/BookController.php';
-require_once '../controller/PeriodicalController.php';
-require_once '../controller/MediaResourceController.php';
-require_once '../controller/UserController.php';
+require_once '../app/handler/Session.php';
+require_once '../app/handler/BorrowingController.php';
+require_once '../app/handler/ResourceController.php';
+require_once '../app/handler/BookController.php';
+require_once '../app/handler/PeriodicalController.php';
+require_once '../app/handler/MediaResourceController.php';
+require_once '../app/handler/UserController.php';
 require_once '../vendor/autoload.php'; // Make sure TCPDF is installed via composer
 
 Session::start();

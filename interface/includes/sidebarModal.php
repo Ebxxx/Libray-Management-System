@@ -1,5 +1,5 @@
 <?php
-require_once '../controller/Session.php';
+require_once '../app/handler/Session.php';
 Session::start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -42,12 +42,13 @@ if (!isset($_SESSION['user_id'])) {
                     ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link d-flex align-items-center gap-2 text-light rounded py-2 px-3 dropdown-toggle" 
-                    href="resources.php" id="resourcesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                   role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-book"></i>
                         <span>Resources</span>
                     </a>
+                    
                     <ul class="dropdown-menu dropdown-custom" aria-labelledby="resourcesDropdown">
-                        <!-- <li><a class="dropdown-item text-light" href="resources.php">All Resources</a></li> -->
+                        
                         <li><a class="dropdown-item text-light" href="books.php">Books</a></li>
                         <li><a class="dropdown-item text-light" href="periodicals.php">Periodicals</a></li>
                         <li><a class="dropdown-item text-light" href="media-resources.php">Media</a></li>

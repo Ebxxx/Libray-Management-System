@@ -1,7 +1,7 @@
 <?php
 require_once '../config/Database.php';
-require_once '../controller/Session.php';
-require_once '../controller/ActivityLogController.php';
+require_once '../app/handler/Session.php';
+require_once '../app/handler/ActivityLogController.php';
 
 class BorrowingController {
     private $conn;

@@ -1,10 +1,10 @@
 <?php
 require_once '../config/Database.php';
-require_once '../controller/ResourceController.php';
-require_once '../controller/BookController.php';
-require_once '../controller/MediaResourceController.php';
-require_once '../controller/PeriodicalController.php';
-require_once '../controller/BorrowingController.php';
+require_once '../app/handler/ResourceController.php';
+require_once '../app/handler/BookController.php';
+require_once '../app/handler/MediaResourceController.php';
+require_once '../app/handler/PeriodicalController.php';
+require_once '../app/handler/BorrowingController.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {

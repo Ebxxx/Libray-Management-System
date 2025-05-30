@@ -1,6 +1,6 @@
 <?php
-require_once '../controller/BookController.php';
-require_once '../controller/Session.php';
+require_once '../app/handler/BookController.php';
+require_once '../app/handler/Session.php';
 
 Session::start();
 Session::requireAdmin();

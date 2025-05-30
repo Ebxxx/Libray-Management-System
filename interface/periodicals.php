@@ -1,6 +1,6 @@
 <?php
-require_once '../controller/PeriodicalController.php';
-require_once '../controller/Session.php';
+require_once '../app/handler/PeriodicalController.php';
+require_once '../app/handler/Session.php';
 
 Session::start();
 Session::requireAdmin();

@@ -1,6 +1,6 @@
 <?php
-require_once '../controller/MediaResourceController.php';
-require_once '../controller/Session.php';
+require_once '../app/handler/MediaResourceController.php';
+require_once '../app/handler/Session.php';
 
 Session::start();
 Session::requireAdmin();

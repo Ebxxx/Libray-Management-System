@@ -1,6 +1,6 @@
 <?php
-require_once '../controller/UserController.php';
-require_once '../controller/ActivityLogController.php';
+require_once '../app/handler/UserController.php';
+require_once '../app/handler/ActivityLogController.php';
 session_start();
 
 // Check if user is logged in and is an admin

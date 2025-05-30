@@ -1,7 +1,7 @@
 <?php
-require_once '../controller/UserController.php';
-require_once '../controller/Session.php';
-require_once '../controller/BorrowingController.php';
+require_once '../app/handler/UserController.php';
+require_once '../app/handler/Session.php';
+require_once '../app/handler/BorrowingController.php';
 
 Session::start();
 if (!($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff')) {
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['delete_user'])) {
         if ($_SESSION['role'] !== 'admin') {
             Session::setFlash('error', 'Only administrators can delete users');
-            header("Location: users.php");
+            header("Location: user-management.php");
             exit();
         }
         $userId = filter_input(INPUT_POST, 'user_id', FILTER_SANITIZE_NUMBER_INT);
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Prevent deleting own account
         if ($userId == $_SESSION['user_id']) {
             Session::setFlash('error', 'You cannot delete your own account');
-            header("Location: users.php");
+            header("Location: user-management.php");
             exit();
         }
         
@@ -55,14 +55,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             Session::setFlash('error', 'Error deleting user. The user might be the last admin or have associated records.');
         }
-        header("Location: users.php");
+        header("Location: user-management.php");
         exit();
     }
     // For create/update, check if user is admin for updates
     else {
         if (isset($_POST['user_id']) && !empty($_POST['user_id']) && $_SESSION['role'] !== 'admin') {
             Session::setFlash('error', 'Only administrators can edit users');
-            header("Location: users.php");
+            header("Location: user-management.php");
             exit();
         }
         // Sanitize input
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Validate email
         if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
             Session::setFlash('error', 'Invalid email format');
-            header("Location: users.php");
+            header("Location: user-management.php");
             exit();
         } else {
             // Handle password
@@ -97,26 +97,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $userId = filter_input(INPUT_POST, 'user_id', FILTER_SANITIZE_NUMBER_INT);
                 if ($userController->updateUser($userId, $userData)) {
                     Session::setFlash('success', 'User updated successfully');
-                    header("Location: users.php");
+                    header("Location: user-management.php");
                     exit();
                 } else {
                     Session::setFlash('error', 'Error updating user');
-                    header("Location: users.php");
+                    header("Location: user-management.php");
                     exit();
                 }
             } else {
                 // Create new user
                 if (empty($_POST['password'])) {
                     Session::setFlash('error', 'Password is required for new users');
-                    header("Location: users.php");
+                    header("Location: user-management.php");
                     exit();
                 } else if ($userController->createUser($userData)) {
                     Session::setFlash('success', 'User created successfully');
-                    header("Location: users.php");
+                    header("Location: user-management.php");
                     exit();
                 } else {
                     Session::setFlash('error', 'Error creating user');
-                    header("Location: users.php");
+                    header("Location: user-management.php");
                     exit();
                 }
             }
@@ -189,7 +189,7 @@ $error_message = Session::getFlash('error');
                                     <i class="bi bi-search"></i>
                                 </button>
                                 <?php if ($searchQuery): ?>
-                                    <a href="users.php" class="btn btn-outline-secondary">
+                                    <a href="user-management.php" class="btn btn-outline-secondary">
                                         <i class="bi bi-x-lg"></i>
                                     </a>
                                 <?php endif; ?>

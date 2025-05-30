@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../controller/UserController.php';
+require_once __DIR__ . '/../../app/handler/UserController.php';
 session_start();
 
 if (isset($_SESSION['user_id'])) {
