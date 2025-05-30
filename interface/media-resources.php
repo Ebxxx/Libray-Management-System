@@ -142,6 +142,7 @@ $error_message = Session::getFlash('error');
                                 <th>Format</th>
                                 <th>Runtime</th>
                                 <th>Media Type</th>
+                                <th>Resource Type</th>
                                 <th>Category</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -168,7 +169,8 @@ $error_message = Session::getFlash('error');
                                 <td><?php echo htmlspecialchars($media['format']); ?></td>
                                 <td><?php echo htmlspecialchars($media['runtime']); ?> min</td>
                                 <td><?php echo htmlspecialchars($media['media_type']); ?></td>
-                                <td><?php echo htmlspecialchars($media['category']); ?></td>
+                                <td><span class="badge bg-info">Media</span></td>
+                                <td><?php echo htmlspecialchars($media['type'] ?? 'Not Set'); ?></td>
                                 <td>
                                     <span class="badge 
                                     <?php 

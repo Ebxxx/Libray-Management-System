@@ -12,12 +12,22 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Fetch book statistics
+// Initialize controllers
 $resourceController = new ResourceController();
+$bookController = new BookController();
+$mediaController = new MediaResourceController();
+$periodicalController = new PeriodicalController();
+
+// Fetch statistics
 $bookStats = $resourceController->getBookStatistics();
-$categoryDistribution = $resourceController->getBookCategoriesDistribution();
 $monthlyBorrowings = $resourceController->getMonthlyBorrowings(date('Y'));
 $popularResources = $resourceController->getMostBorrowedResources();
+
+// Get counts for each resource type
+$totalBooks = $bookController->getTotalBooks();
+$totalMedia = $mediaController->getTotalMediaResources();
+$totalPeriodicals = $periodicalController->getTotalPeriodicals();
+$totalResources = $totalBooks + $totalMedia + $totalPeriodicals;
 ?>
 
 <!DOCTYPE html>
@@ -57,15 +67,28 @@ $popularResources = $resourceController->getMostBorrowedResources();
             </div>
             <hr>
 
+            <!-- Resource Type Statistics -->
             <div class="row mt-4">
                 <div class="col-md-3">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                         <div class="card-body position-relative p-4" style="background-color: #2B3377;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-book-fill text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Total Library Materials</h5>
+                                <h5 class="card-title text-white mb-0">Books</h5>
                             </div>
-                            <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['total_books']; ?></h2>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalBooks; ?></h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #FF00FF;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-journal text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Periodicals</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalPeriodicals; ?></h2>
                         </div>
                     </div>
                 </div>
@@ -74,40 +97,93 @@ $popularResources = $resourceController->getMostBorrowedResources();
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                         <div class="card-body position-relative p-4" style="background-color: #0047FF;">
                             <div class="d-flex align-items-center mb-2">
-                                <i class="bi bi-journal-check text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Available Materials</h5>
+                                <i class="bi bi-camera-video text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Media Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalMedia; ?></h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #FF6600;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-collection text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Total Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalResources; ?></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Statistics -->
+            <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #28a745;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-check-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Available Resources</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['available_books']; ?></h2>
                         </div>
                     </div>
                 </div>
-                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
-                <div class="col-md-3">
+                
+                <div class="col-md-4">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                        <div class="card-body position-relative p-4" style="background-color: #FF00FF;">
+                        <div class="card-body position-relative p-4" style="background-color: #ffc107;">
                             <div class="d-flex align-items-center mb-2">
-                                <i class="bi bi-journal-arrow-up text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Borrowed Materials</h5>
+                                <i class="bi bi-arrow-up-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Borrowed Resources</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['borrowed_books']; ?></h2>
                         </div>
                     </div>
                 </div>
-                <?php endif; ?>
-                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
-                <div class="col-md-3">
+                
+                <div class="col-md-4">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                        <div class="card-body position-relative p-4" style="background-color: #FF6600;">
+                        <div class="card-body position-relative p-4" style="background-color: #dc3545;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-exclamation-triangle-fill text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Overdue Materials</h5>
+                                <h5 class="card-title text-white mb-0">Overdue Resources</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['overdue_books']; ?></h2>
                         </div>
                     </div>
                 </div>
-                <?php endif; ?>
             </div>
+            <?php else: ?>
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #28a745;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-check-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Available Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['available_books']; ?></h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #ffc107;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-arrow-up-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Borrowed Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['borrowed_books']; ?></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Replace both Top Choices and Most Borrowed Resources sections with this include -->
             <?php include 'includes/most_borrowed_resources.php'; ?>
@@ -155,9 +231,9 @@ $popularResources = $resourceController->getMostBorrowedResources();
     <script>
         // Initialize chart data that PHP provides
         const initialResourceData = {
-            books: <?php echo $resourceController->getTotalBooks(); ?>,
-            mediaResources: <?php echo $resourceController->getTotalMediaResources(); ?>,
-            periodicals: <?php echo $resourceController->getTotalPeriodicals(); ?>
+            books: <?php echo $totalBooks; ?>,
+            mediaResources: <?php echo $totalMedia; ?>,
+            periodicals: <?php echo $totalPeriodicals; ?>
         };
         const initialMonthlyData = [<?php echo implode(',', $monthlyBorrowings); ?>];
     </script>
@@ -169,9 +245,9 @@ $popularResources = $resourceController->getMostBorrowedResources();
                 labels: ['Books', 'Periodicals', 'Media Resources'],
                 datasets: [{
                     data: [
-                        <?php echo $resourceController->getTotalBooks(); ?>,
-                        <?php echo $resourceController->getTotalPeriodicals(); ?>,
-                        <?php echo $resourceController->getTotalMediaResources(); ?>
+                        <?php echo $totalBooks; ?>,
+                        <?php echo $totalPeriodicals; ?>,
+                        <?php echo $totalMedia; ?>
                     ],
                     backgroundColor: [
                         '#2B3377',  // Dark blue for Books

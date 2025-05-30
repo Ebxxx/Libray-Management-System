@@ -32,15 +32,14 @@ class MediaResourceController {
                 }
             }
 
-            // First, insert into library_resources
+            // First, insert into library_resources - automatically set type to 'media'
             $resourceQuery = "INSERT INTO library_resources 
                             (title, accession_number, category, status, cover_image) 
-                            VALUES (:title, :accession_number, :category, 'available', :cover_image)
+                            VALUES (:title, :accession_number, 'media', 'available', :cover_image)
                             RETURNING resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $mediaData['title']);
             $resourceStmt->bindParam(":accession_number", $mediaData['accession_number']);
-            $resourceStmt->bindParam(":category", $mediaData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
@@ -53,13 +52,14 @@ class MediaResourceController {
 
             // Then, insert into media_resources
             $mediaQuery = "INSERT INTO media_resources 
-                          (resource_id, format, runtime, media_type) 
-                          VALUES (:resource_id, :format, :runtime, :media_type)";
+                          (resource_id, format, runtime, media_type, type) 
+                          VALUES (:resource_id, :format, :runtime, :media_type, :type)";
             $mediaStmt = $this->conn->prepare($mediaQuery);
             $mediaStmt->bindParam(":resource_id", $resourceId);
             $mediaStmt->bindParam(":format", $mediaData['format']);
             $mediaStmt->bindParam(":runtime", $mediaData['runtime']);
             $mediaStmt->bindParam(":media_type", $mediaData['media_type']);
+            $mediaStmt->bindParam(":type", $mediaData['category']);
             $mediaStmt->execute();
 
             // Commit transaction
@@ -77,8 +77,8 @@ class MediaResourceController {
 
     public function getMediaResources() {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
-                             mr.format, mr.runtime, mr.media_type
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             mr.format, mr.runtime, mr.media_type, mr.type
                       FROM library_resources lr
                       JOIN media_resources mr ON lr.resource_id = mr.resource_id
                       ORDER BY lr.created_at DESC";
@@ -124,15 +124,13 @@ class MediaResourceController {
                 }
             }
 
-            // Update library_resources
+            // Update library_resources - keep type as 'media'
             $resourceQuery = "UPDATE library_resources 
-                            SET title = :title, 
-                                category = :category" .
+                            SET title = :title" .
                                 ($coverImage ? ", cover_image = :cover_image" : "") . 
                             " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $mediaData['title']);
-            $resourceStmt->bindParam(":category", $mediaData['category']);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             if ($coverImage) {
                 $resourceStmt->bindParam(":cover_image", $coverImage);
@@ -143,12 +141,14 @@ class MediaResourceController {
             $mediaQuery = "UPDATE media_resources 
                           SET format = :format,
                               runtime = :runtime,
-                              media_type = :media_type
+                              media_type = :media_type,
+                              type = :type
                           WHERE resource_id = :resource_id";
             $mediaStmt = $this->conn->prepare($mediaQuery);
             $mediaStmt->bindParam(":format", $mediaData['format']);
             $mediaStmt->bindParam(":runtime", $mediaData['runtime']);
             $mediaStmt->bindParam(":media_type", $mediaData['media_type']);
+            $mediaStmt->bindParam(":type", $mediaData['category']);
             $mediaStmt->bindParam(":resource_id", $resourceId);
             $mediaStmt->execute();
 

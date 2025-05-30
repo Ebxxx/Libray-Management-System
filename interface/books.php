@@ -159,6 +159,7 @@ $error_message = Session::getFlash('error');
                                 <th>Title</th>
                                 <th>Author</th>
                                 <th>ISBN</th>
+                                <th>Resource Type</th>
                                 <th>Category</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -184,7 +185,8 @@ $error_message = Session::getFlash('error');
                                 <td><?php echo htmlspecialchars($book['title']); ?></td>
                                 <td><?php echo htmlspecialchars($book['author']); ?></td>
                                 <td><?php echo htmlspecialchars($book['isbn']); ?></td>
-                                <td><?php echo htmlspecialchars($book['category']); ?></td>
+                                <td><span class="badge bg-primary">Book</span></td>
+                                <td><?php echo htmlspecialchars($book['type'] ?? 'Not Set'); ?></td>
                                 <td>
                                     <span class="badge 
                                     <?php 

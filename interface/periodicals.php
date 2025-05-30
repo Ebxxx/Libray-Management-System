@@ -144,6 +144,7 @@ $error_message = Session::getFlash('error');
                                 <th>Volume</th>
                                 <th>Issue</th>
                                 <th>Publication Date</th>
+                                <th>Resource Type</th>
                                 <th>Category</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -171,7 +172,8 @@ $error_message = Session::getFlash('error');
                                 <td><?php echo htmlspecialchars($periodical['volume']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['issue']); ?></td>
                                 <td><?php echo htmlspecialchars($periodical['publication_date']); ?></td>
-                                <td><?php echo htmlspecialchars($periodical['category']); ?></td>
+                                <td><span class="badge bg-warning">Periodical</span></td>
+                                <td><?php echo htmlspecialchars($periodical['type'] ?? 'Not Set'); ?></td>
                                 <td>
                                     <span class="badge 
                                     <?php 

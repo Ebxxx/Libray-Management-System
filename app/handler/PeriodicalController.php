@@ -31,15 +31,14 @@ class PeriodicalController {
                 }
             }
 
-            // First, insert into library_resources
+            // First, insert into library_resources - automatically set type to 'periodical'
             $resourceQuery = "INSERT INTO library_resources 
                               (title, accession_number, category, status, cover_image) 
-                              VALUES (:title, :accession_number, :category, 'available', :cover_image)
+                              VALUES (:title, :accession_number, 'periodical', 'available', :cover_image)
                               RETURNING resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
             $resourceStmt->bindParam(":accession_number", $periodicalData['accession_number']);
-            $resourceStmt->bindParam(":category", $periodicalData['category']);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
@@ -52,14 +51,15 @@ class PeriodicalController {
 
             // Then, insert into periodicals
             $periodicalQuery = "INSERT INTO periodicals 
-                                (resource_id, issn, volume, issue, publication_date) 
-                                VALUES (:resource_id, :issn, :volume, :issue, :publication_date)";
+                                (resource_id, issn, volume, issue, publication_date, type) 
+                                VALUES (:resource_id, :issn, :volume, :issue, :publication_date, :type)";
             $periodicalStmt = $this->conn->prepare($periodicalQuery);
             $periodicalStmt->bindParam(":resource_id", $resourceId);
             $periodicalStmt->bindParam(":issn", $periodicalData['issn']);
             $periodicalStmt->bindParam(":volume", $periodicalData['volume']);
             $periodicalStmt->bindParam(":issue", $periodicalData['issue']);
             $periodicalStmt->bindParam(":publication_date", $periodicalData['publication_date']);
+            $periodicalStmt->bindParam(":type", $periodicalData['category']);
             $periodicalStmt->execute();
 
             // Commit transaction
@@ -77,8 +77,8 @@ class PeriodicalController {
 
     public function getPeriodicals() {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
-                             p.issn, p.volume, p.issue, p.publication_date
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             p.issn, p.volume, p.issue, p.publication_date, p.type
                       FROM library_resources lr
                       JOIN periodicals p ON lr.resource_id = p.resource_id
                       ORDER BY lr.created_at DESC";
@@ -124,15 +124,13 @@ class PeriodicalController {
                 }
             }
 
-            // Update library_resources
+            // Update library_resources - keep type as 'periodical'
             $resourceQuery = "UPDATE library_resources 
-                              SET title = :title, 
-                                  category = :category" .
+                              SET title = :title" .
                                   ($coverImage ? ", cover_image = :cover_image" : "") . 
                               " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $periodicalData['title']);
-            $resourceStmt->bindParam(":category", $periodicalData['category']);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             if ($coverImage) {
                 $resourceStmt->bindParam(":cover_image", $coverImage);
@@ -144,13 +142,15 @@ class PeriodicalController {
                                 SET issn = :issn, 
                                     volume = :volume, 
                                     issue = :issue, 
-                                    publication_date = :publication_date
+                                    publication_date = :publication_date,
+                                    type = :type
                                 WHERE resource_id = :resource_id";
             $periodicalStmt = $this->conn->prepare($periodicalQuery);
             $periodicalStmt->bindParam(":issn", $periodicalData['issn']);
             $periodicalStmt->bindParam(":volume", $periodicalData['volume']);
             $periodicalStmt->bindParam(":issue", $periodicalData['issue']);
             $periodicalStmt->bindParam(":publication_date", $periodicalData['publication_date']);
+            $periodicalStmt->bindParam(":type", $periodicalData['category']);
             $periodicalStmt->bindParam(":resource_id", $resourceId);
             $periodicalStmt->execute();
 

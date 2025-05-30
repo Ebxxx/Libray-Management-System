@@ -17,13 +17,6 @@ class BookController {
             // Log incoming data
             error_log("Creating book with data: " . print_r($bookData, true));
 
-            // Validate category
-            $validCategories = ['fiction', 'non-fiction', 'reference', 'academic'];
-            $category = strtolower($bookData['category']);
-            if (!in_array($category, $validCategories)) {
-                throw new Exception("Invalid category. Must be one of: " . implode(', ', $validCategories));
-            }
-
             // Handle image upload
             $coverImage = null;
             if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
@@ -44,24 +37,23 @@ class BookController {
                 }
             }
 
-            // First, insert into library_resources
+            // First, insert into library_resources - automatically set type to 'book'
             $resourceQuery = "INSERT INTO library_resources 
                               (title, accession_number, category, status, cover_image) 
-                              VALUES (:title, :accession_number, :category, 'available', :cover_image)
+                              VALUES (:title, :accession_number, 'book', 'available', :cover_image)
                               RETURNING resource_id";
             
             error_log("Executing resource query: " . $resourceQuery);
             error_log("Resource parameters: " . print_r([
                 'title' => $bookData['title'],
                 'accession_number' => $bookData['accession_number'],
-                'category' => $category,
+                'type' => 'book',
                 'cover_image' => $coverImage
             ], true));
 
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $bookData['title']);
             $resourceStmt->bindParam(":accession_number", $bookData['accession_number']);
-            $resourceStmt->bindParam(":category", $category);
             $resourceStmt->bindParam(":cover_image", $coverImage);
             $resourceStmt->execute();
 
@@ -75,8 +67,8 @@ class BookController {
 
             // Then, insert into books
             $bookQuery = "INSERT INTO books 
-                          (resource_id, author, isbn, publisher, edition, publication_date) 
-                          VALUES (:resource_id, :author, :isbn, :publisher, :edition, :publication_date)";
+                          (resource_id, author, isbn, publisher, edition, publication_date, type) 
+                          VALUES (:resource_id, :author, :isbn, :publisher, :edition, :publication_date, :type)";
             
             error_log("Executing book query: " . $bookQuery);
             error_log("Book parameters: " . print_r([
@@ -85,7 +77,8 @@ class BookController {
                 'isbn' => $bookData['isbn'],
                 'publisher' => $bookData['publisher'],
                 'edition' => $bookData['edition'],
-                'publication_date' => $bookData['publication_date']
+                'publication_date' => $bookData['publication_date'],
+                'type' => $bookData['category']
             ], true));
 
             $bookStmt = $this->conn->prepare($bookQuery);
@@ -95,6 +88,7 @@ class BookController {
             $bookStmt->bindParam(":publisher", $bookData['publisher']);
             $bookStmt->bindParam(":edition", $bookData['edition']);
             $bookStmt->bindParam(":publication_date", $bookData['publication_date']);
+            $bookStmt->bindParam(":type", $bookData['category']);
             $bookStmt->execute();
 
             // Commit transaction
@@ -115,8 +109,8 @@ class BookController {
 
     public function getBooks() {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
-                             b.author, b.isbn, b.publisher, b.edition, b.publication_date
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             b.author, b.isbn, b.publisher, b.edition, b.publication_date, b.type
                       FROM library_resources lr
                       JOIN books b ON lr.resource_id = b.resource_id
                       ORDER BY lr.created_at DESC";
@@ -131,8 +125,8 @@ class BookController {
 
     public function getBookById($resourceId) {
         try {
-            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category, lr.status, lr.cover_image,
-                             b.author, b.isbn, b.publisher, b.edition, b.publication_date
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             b.author, b.isbn, b.publisher, b.edition, b.publication_date, b.type
                       FROM library_resources lr
                       JOIN books b ON lr.resource_id = b.resource_id
                       WHERE lr.resource_id = :resource_id";
@@ -173,17 +167,15 @@ class BookController {
                 }
             }
 
-            // Update library_resources
+            // Update library_resources - keep type as 'book'
             $resourceQuery = "UPDATE library_resources 
                               SET title = :title, 
-                                  accession_number = :accession_number, 
-                                  category = :category" .
+                                  accession_number = :accession_number" .
                                   ($coverImage ? ", cover_image = :cover_image" : "") . 
                               " WHERE resource_id = :resource_id";
             $resourceStmt = $this->conn->prepare($resourceQuery);
             $resourceStmt->bindParam(":title", $bookData['title']);
             $resourceStmt->bindParam(":accession_number", $bookData['accession_number']);
-            $resourceStmt->bindParam(":category", $bookData['category']);
             $resourceStmt->bindParam(":resource_id", $resourceId);
             if ($coverImage) {
                 $resourceStmt->bindParam(":cover_image", $coverImage);
@@ -196,7 +188,8 @@ class BookController {
                               isbn = :isbn, 
                               publisher = :publisher, 
                               edition = :edition, 
-                              publication_date = :publication_date
+                              publication_date = :publication_date,
+                              type = :type
                           WHERE resource_id = :resource_id";
             $bookStmt = $this->conn->prepare($bookQuery);
             $bookStmt->bindParam(":author", $bookData['author']);
@@ -204,6 +197,7 @@ class BookController {
             $bookStmt->bindParam(":publisher", $bookData['publisher']);
             $bookStmt->bindParam(":edition", $bookData['edition']);
             $bookStmt->bindParam(":publication_date", $bookData['publication_date']);
+            $bookStmt->bindParam(":type", $bookData['category']);
             $bookStmt->bindParam(":resource_id", $resourceId);
             $bookStmt->execute();
 
