@@ -249,6 +249,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 ? 'text-warning' 
                 : 'text-muted';
 
+        // Determine resource type badge
+        let resourceTypeBadge = '';
+        if (resource.resource_type === 'book') {
+            resourceTypeBadge = '<span class="badge bg-primary">Book</span>';
+        } else if (resource.resource_type === 'periodical') {
+            resourceTypeBadge = '<span class="badge bg-warning">Periodical</span>';
+        } else if (resource.resource_type === 'media') {
+            resourceTypeBadge = '<span class="badge bg-info">Media</span>';
+        }
+
         let detailsHtml = `
             <div class="text-center mb-4">
                 <img src="../${resource.cover_image || 'assets/images/default1.png'}" 
@@ -259,8 +269,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="resource-details">
                 <h6 class="fw-bold">Title:</h6>
                 <p>${resource.title || 'N/A'}</p>
+                <h6 class="fw-bold">Resource Type:</h6>
+                <p>${resourceTypeBadge}</p>
                 <h6 class="fw-bold">Category:</h6>
-                <p>${resource.category || 'N/A'}</p>
+                <p>${resource.type || 'N/A'}</p>
+                <h6 class="fw-bold">Accession Number:</h6>
+                <p>${resource.accession_number || 'N/A'}</p>
                 <h6 class="fw-bold">Status:</h6>
                 <p class="fw-bold ${statusColor}">${resource.status ? resource.status.toUpperCase() : 'N/A'}</p>`;
 
@@ -270,18 +284,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h6 class="fw-bold">Author:</h6>
                 <p>${resource.author}</p>
                 <h6 class="fw-bold">ISBN:</h6>
-                <p>${resource.isbn}</p>
+                <p>${resource.isbn || 'N/A'}</p>
                 <h6 class="fw-bold">Publisher:</h6>
-                <p>${resource.publisher}</p>
+                <p>${resource.publisher || 'N/A'}</p>
                 <h6 class="fw-bold">Edition:</h6>
-                <p>${resource.edition}</p>
+                <p>${resource.edition || 'N/A'}</p>
                 <h6 class="fw-bold">Publication Date:</h6>
-                <p>${resource.publication_date}</p>`;
+                <p>${resource.publication_date || 'N/A'}</p>`;
         }
 
         // Periodical details
-        if (resource.volume || resource.issue) {
+        if (resource.issn || resource.volume || resource.issue) {
             detailsHtml += `
+                <h6 class="fw-bold">ISSN:</h6>
+                <p>${resource.issn || 'N/A'}</p>
                 <h6 class="fw-bold">Volume:</h6>
                 <p>${resource.volume || 'N/A'}</p>
                 <h6 class="fw-bold">Issue:</h6>
@@ -295,11 +311,13 @@ document.addEventListener('DOMContentLoaded', function() {
             detailsHtml += `
                 <h6 class="fw-bold">Media Type:</h6>
                 <p>${resource.media_type || 'N/A'}</p>
-                <h6 class="fw-bold">Runtime:</h6>
-                <p>${resource.runtime || 'N/A'}</p>
                 <h6 class="fw-bold">Format:</h6>
-                <p>${resource.format || 'N/A'}</p>`;
+                <p>${resource.format || 'N/A'}</p>
+                <h6 class="fw-bold">Runtime:</h6>
+                <p>${resource.runtime ? resource.runtime + ' minutes' : 'N/A'}</p>`;
         }
+
+        detailsHtml += '</div>';
 
         document.getElementById('resourceDetailsContent').innerHTML = detailsHtml;
         // Only show the modal here!

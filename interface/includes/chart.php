@@ -35,9 +35,9 @@
 <script>
     // Initialize chart data that PHP provides
     const initialResourceData = {
-        books: <?php echo $resourceController->getTotalBooks(); ?>,
-        mediaResources: <?php echo $resourceController->getTotalMediaResources(); ?>,
-        periodicals: <?php echo $resourceController->getTotalPeriodicals(); ?>
+        books: <?php echo $totalBooks; ?>,
+        mediaResources: <?php echo $totalMedia; ?>,
+        periodicals: <?php echo $totalPeriodicals; ?>
     };
     const initialMonthlyData = [<?php echo implode(',', $monthlyBorrowings); ?>];
 </script>

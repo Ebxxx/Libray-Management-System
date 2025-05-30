@@ -422,12 +422,24 @@ $totalResources = $totalBooks + $totalMedia + $totalPeriodicals;
             initializeMonthlyChart(initialMonthlyData);
 
             document.getElementById('yearSelector').addEventListener('change', function() {
-                fetch(`../controller/get_monthly_borrowings.php?year=${this.value}`)
+                fetch(`../app/handler/get_monthly_borrowings.php?year=${this.value}`)
                     .then(response => response.json())
                     .then(data => {
                         initializeMonthlyChart(data);
                     })
                     .catch(error => console.error('Error:', error));
+            });
+
+            // Modal cleanup
+            var resourceModal = document.getElementById('resourceDetailsModal');
+            resourceModal.addEventListener('hidden.bs.modal', function () {
+                // Remove any lingering modal-backdrop
+                document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                    backdrop.parentNode.removeChild(backdrop);
+                });
+                // Remove blur from body if present
+                document.body.classList.remove('modal-open');
+                document.body.style = '';
             });
         });
     </script>
@@ -512,122 +524,5 @@ $totalResources = $totalBooks + $totalMedia + $totalPeriodicals;
             </div>
         </div>
     </div>
-
-    <!-- Modify the image sections to be clickable -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const resourceImages = document.querySelectorAll('.resource-image');
-        resourceImages.forEach(img => {
-            img.style.cursor = 'pointer';
-            img.addEventListener('click', function() {
-                const resourceId = this.dataset.resourceId;
-                const resourceType = this.dataset.resourceType;
-                fetchResourceDetails(resourceId, resourceType);
-            });
-        });
-
-        function fetchResourceDetails(resourceId, resourceType) {
-            // Clear modal content before fetching
-            document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-center">Loading...</div>';
-            // Only show modal after data is loaded!
-            fetch(`../api/get_resource_details.php?resource_id=${resourceId}&type=${resourceType}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        displayResourceDetails(data.resource);
-                    } else {
-                        document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
-                });
-        }
-
-        function displayResourceDetails(resource) {
-            const statusColor = resource.status && resource.status.toLowerCase() === 'available' 
-                ? 'text-success' 
-                : resource.status && resource.status.toLowerCase() === 'borrowed' 
-                    ? 'text-warning' 
-                    : 'text-muted';
-
-            let detailsHtml = `
-                <div class="text-center mb-4">
-                    <img src="../${resource.cover_image || 'assets/images/default1.png'}" 
-                         class="img-fluid rounded shadow-sm" 
-                         style="max-height: 200px;" 
-                         alt="Resource Cover">
-                </div>
-                <div class="resource-details">
-                    <h6 class="fw-bold">Title:</h6>
-                    <p>${resource.title || 'N/A'}</p>
-                    <h6 class="fw-bold">Category:</h6>
-                    <p>${resource.category || 'N/A'}</p>
-                    <h6 class="fw-bold">Status:</h6>
-                    <p class="fw-bold ${statusColor}">${resource.status ? resource.status.toUpperCase() : 'N/A'}</p>`;
-
-            // Book details
-            if (resource.author) {
-                detailsHtml += `
-                    <h6 class="fw-bold">Author:</h6>
-                    <p>${resource.author}</p>
-                    <h6 class="fw-bold">ISBN:</h6>
-                    <p>${resource.isbn}</p>
-                    <h6 class="fw-bold">Publisher:</h6>
-                    <p>${resource.publisher}</p>
-                    <h6 class="fw-bold">Edition:</h6>
-                    <p>${resource.edition}</p>
-                    <h6 class="fw-bold">Publication Date:</h6>
-                    <p>${resource.publication_date}</p>`;
-            }
-
-            // Periodical details
-            if (resource.volume || resource.issue) {
-                detailsHtml += `
-                    <h6 class="fw-bold">Volume:</h6>
-                    <p>${resource.volume || 'N/A'}</p>
-                    <h6 class="fw-bold">Issue:</h6>
-                    <p>${resource.issue || 'N/A'}</p>
-                    <h6 class="fw-bold">Publication Date:</h6>
-                    <p>${resource.publication_date || 'N/A'}</p>`;
-            }
-
-            // Media details
-            if (resource.media_type || resource.runtime || resource.format) {
-                detailsHtml += `
-                    <h6 class="fw-bold">Media Type:</h6>
-                    <p>${resource.media_type || 'N/A'}</p>
-                    <h6 class="fw-bold">Runtime:</h6>
-                    <p>${resource.runtime || 'N/A'}</p>
-                    <h6 class="fw-bold">Format:</h6>
-                    <p>${resource.format || 'N/A'}</p>`;
-            }
-
-            document.getElementById('resourceDetailsContent').innerHTML = detailsHtml;
-            // Only show the modal here!
-            const modal = new bootstrap.Modal(document.getElementById('resourceDetailsModal'), {
-                backdrop: true,
-                keyboard: true,
-                focus: true
-            });
-            modal.show();
-        }
-    });
-    </script>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var resourceModal = document.getElementById('resourceDetailsModal');
-        resourceModal.addEventListener('hidden.bs.modal', function () {
-            // Remove any lingering modal-backdrop
-            document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
-                backdrop.parentNode.removeChild(backdrop);
-            });
-            // Remove blur from body if present
-            document.body.classList.remove('modal-open');
-            document.body.style = '';
-        });
-    });
-    </script>
 </body>
 </html>
