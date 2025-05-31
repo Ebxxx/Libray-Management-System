@@ -7,6 +7,10 @@ Session::requireAdmin();
 
 $periodicalController = new PeriodicalController();
 
+// Handle search
+$searchQuery = filter_input(INPUT_GET, 'search', FILTER_SANITIZE_STRING);
+$periodicals = $searchQuery ? $periodicalController->searchPeriodicals($searchQuery) : $periodicalController->getPeriodicals();
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle Delete
@@ -66,9 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get periodicals for display
-$periodicals = $periodicalController->getPeriodicals();
-
 // Get flash messages
 $success_message = Session::getFlash('success');
 $error_message = Session::getFlash('error');
@@ -122,8 +123,29 @@ $error_message = Session::getFlash('error');
                 <div class="page-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0">
                         <i></i>Periodicals Management
+                        <small class="text-light">(<?php echo count($periodicals); ?> periodicals<?php echo $searchQuery ? ' found' : ''; ?>)</small>
                     </h2>
                     <div class="d-flex align-items-center">
+                        <!-- Search Form -->
+                        <form class="me-3" method="GET" action="" id="searchForm">
+                            <div class="input-group">
+                                <input type="text" 
+                                       class="form-control" 
+                                       placeholder="Search periodicals..." 
+                                       name="search"
+                                       id="searchInput"
+                                       value="<?php echo htmlspecialchars($searchQuery ?? ''); ?>">
+                                <button class="btn btn-outline-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                <?php if ($searchQuery): ?>
+                                    <a href="periodicals.php" class="btn btn-outline-secondary" title="Clear search">
+                                        <i class="bi bi-x-lg"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </form>
+                        
                         <div class="box p-3 border rounded me-3">
                             <span>Total Periodicals: <?php echo count($periodicals); ?></span>
                         </div>
@@ -269,6 +291,32 @@ $error_message = Session::getFlash('error');
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/resources.js"></script>
     <script>
+        // Enhanced search functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchForm = document.getElementById('searchForm');
+            const searchInput = document.getElementById('searchInput');
+
+            // Auto-submit search with debounce for better UX
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                // Only auto-search if query is long enough or empty (for clearing)
+                if (query.length >= 2 || query.length === 0) {
+                    searchTimeout = setTimeout(() => {
+                        searchForm.submit();
+                    }, 500); // 500ms debounce
+                }
+            });
+
+            // Performance logging
+            console.log('Periodicals Management loaded with <?php echo count($periodicals); ?> periodicals');
+            <?php if ($searchQuery): ?>
+            console.log('Search query: "<?php echo addslashes($searchQuery); ?>"');
+            <?php endif; ?>
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             const periodicalModal = document.getElementById('periodicalModal');
             const periodicalForm = document.getElementById('periodicalForm');

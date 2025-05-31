@@ -123,6 +123,39 @@ class BookController {
         }
     }
 
+    public function searchBooks($searchQuery = null) {
+        try {
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             b.author, b.isbn, b.publisher, b.edition, b.publication_date, b.type
+                      FROM library_resources lr
+                      JOIN books b ON lr.resource_id = b.resource_id";
+            
+            $params = [];
+            
+            if ($searchQuery) {
+                $query .= " WHERE (lr.title ILIKE :search 
+                           OR b.author ILIKE :search 
+                           OR b.isbn ILIKE :search 
+                           OR lr.accession_number ILIKE :search
+                           OR b.publisher ILIKE :search
+                           OR b.type ILIKE :search)";
+                $params[':search'] = '%' . $searchQuery . '%';
+            }
+            
+            $query .= " ORDER BY lr.created_at DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Search books error: " . $e->getMessage());
+            return [];
+        }
+    }
+
     public function getBookById($resourceId) {
         try {
             $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,

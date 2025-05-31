@@ -91,6 +91,39 @@ class MediaResourceController {
         }
     }
 
+    public function searchMediaResources($searchQuery = null) {
+        try {
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             mr.format, mr.runtime, mr.media_type, mr.type
+                      FROM library_resources lr
+                      JOIN media_resources mr ON lr.resource_id = mr.resource_id";
+            
+            $params = [];
+            
+            if ($searchQuery) {
+                $query .= " WHERE (lr.title ILIKE :search 
+                           OR mr.format ILIKE :search 
+                           OR mr.media_type ILIKE :search 
+                           OR lr.accession_number ILIKE :search
+                           OR mr.type ILIKE :search
+                           OR CAST(mr.runtime AS TEXT) ILIKE :search)";
+                $params[':search'] = '%' . $searchQuery . '%';
+            }
+            
+            $query .= " ORDER BY lr.created_at DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Search media resources error: " . $e->getMessage());
+            return [];
+        }
+    }
+
     public function updateMediaResource($resourceId, $mediaData) {
         try {
             // Begin transaction

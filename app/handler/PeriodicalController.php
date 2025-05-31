@@ -91,6 +91,40 @@ class PeriodicalController {
         }
     }
 
+    public function searchPeriodicals($searchQuery = null) {
+        try {
+            $query = "SELECT lr.resource_id, lr.title, lr.accession_number, lr.category as resource_type, lr.status, lr.cover_image,
+                             p.issn, p.volume, p.issue, p.publication_date, p.type
+                      FROM library_resources lr
+                      JOIN periodicals p ON lr.resource_id = p.resource_id";
+            
+            $params = [];
+            
+            if ($searchQuery) {
+                $query .= " WHERE (lr.title ILIKE :search 
+                           OR p.issn ILIKE :search 
+                           OR p.volume ILIKE :search 
+                           OR p.issue ILIKE :search
+                           OR lr.accession_number ILIKE :search
+                           OR p.type ILIKE :search
+                           OR CAST(p.publication_date AS TEXT) ILIKE :search)";
+                $params[':search'] = '%' . $searchQuery . '%';
+            }
+            
+            $query .= " ORDER BY lr.created_at DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Search periodicals error: " . $e->getMessage());
+            return [];
+        }
+    }
+
     public function updatePeriodical($resourceId, $periodicalData) {
         try {
             // Begin transaction
