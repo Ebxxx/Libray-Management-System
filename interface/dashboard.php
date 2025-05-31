@@ -1,10 +1,10 @@
 <?php
 require_once '../config/Database.php';
-require_once '../controller/ResourceController.php';
-require_once '../controller/BookController.php';
-require_once '../controller/MediaResourceController.php';
-require_once '../controller/PeriodicalController.php';
-require_once '../controller/BorrowingController.php';
+require_once '../app/handler/ResourceController.php';
+require_once '../app/handler/BookController.php';
+require_once '../app/handler/MediaResourceController.php';
+require_once '../app/handler/PeriodicalController.php';
+require_once '../app/handler/BorrowingController.php';
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
@@ -12,12 +12,22 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Fetch book statistics
+// Initialize controllers
 $resourceController = new ResourceController();
+$bookController = new BookController();
+$mediaController = new MediaResourceController();
+$periodicalController = new PeriodicalController();
+
+// Fetch statistics
 $bookStats = $resourceController->getBookStatistics();
-$categoryDistribution = $resourceController->getBookCategoriesDistribution();
 $monthlyBorrowings = $resourceController->getMonthlyBorrowings(date('Y'));
 $popularResources = $resourceController->getMostBorrowedResources();
+
+// Get counts for each resource type
+$totalBooks = $bookController->getTotalBooks();
+$totalMedia = $mediaController->getTotalMediaResources();
+$totalPeriodicals = $periodicalController->getTotalPeriodicals();
+$totalResources = $totalBooks + $totalMedia + $totalPeriodicals;
 ?>
 
 <!DOCTYPE html>
@@ -57,15 +67,28 @@ $popularResources = $resourceController->getMostBorrowedResources();
             </div>
             <hr>
 
+            <!-- Resource Type Statistics -->
             <div class="row mt-4">
                 <div class="col-md-3">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                         <div class="card-body position-relative p-4" style="background-color: #2B3377;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-book-fill text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Total Books</h5>
+                                <h5 class="card-title text-white mb-0">Books</h5>
                             </div>
-                            <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['total_books']; ?></h2>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalBooks; ?></h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #FF00FF;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-journal text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Periodicals</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalPeriodicals; ?></h2>
                         </div>
                     </div>
                 </div>
@@ -74,40 +97,93 @@ $popularResources = $resourceController->getMostBorrowedResources();
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                         <div class="card-body position-relative p-4" style="background-color: #0047FF;">
                             <div class="d-flex align-items-center mb-2">
-                                <i class="bi bi-journal-check text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Available Books</h5>
+                                <i class="bi bi-camera-video text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Media Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalMedia; ?></h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #FF6600;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-collection text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Total Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $totalResources; ?></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Statistics -->
+            <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #28a745;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-check-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Available Resources</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['available_books']; ?></h2>
                         </div>
                     </div>
                 </div>
-                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
-                <div class="col-md-3">
+                
+                <div class="col-md-4">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                        <div class="card-body position-relative p-4" style="background-color: #FF00FF;">
+                        <div class="card-body position-relative p-4" style="background-color: #ffc107;">
                             <div class="d-flex align-items-center mb-2">
-                                <i class="bi bi-journal-arrow-up text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Borrowed Books</h5>
+                                <i class="bi bi-arrow-up-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Borrowed Resources</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['borrowed_books']; ?></h2>
                         </div>
                     </div>
                 </div>
-                <?php endif; ?>
-                <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff'): ?>
-                <div class="col-md-3">
+                
+                <div class="col-md-4">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                        <div class="card-body position-relative p-4" style="background-color: #FF6600;">
+                        <div class="card-body position-relative p-4" style="background-color: #dc3545;">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-exclamation-triangle-fill text-white fs-3 me-3"></i>
-                                <h5 class="card-title text-white mb-0">Overdue Books</h5>
+                                <h5 class="card-title text-white mb-0">Overdue Resources</h5>
                             </div>
                             <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['overdue_books']; ?></h2>
                         </div>
                     </div>
                 </div>
-                <?php endif; ?>
             </div>
+            <?php else: ?>
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #28a745;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-check-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Available Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['available_books']; ?></h2>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                        <div class="card-body position-relative p-4" style="background-color: #ffc107;">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-arrow-up-circle-fill text-white fs-3 me-3"></i>
+                                <h5 class="card-title text-white mb-0">Borrowed Resources</h5>
+                            </div>
+                            <h2 class="text-white mb-0 fw-bold"><?php echo $bookStats['borrowed_books']; ?></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Replace both Top Choices and Most Borrowed Resources sections with this include -->
             <?php include 'includes/most_borrowed_resources.php'; ?>
@@ -155,9 +231,9 @@ $popularResources = $resourceController->getMostBorrowedResources();
     <script>
         // Initialize chart data that PHP provides
         const initialResourceData = {
-            books: <?php echo $resourceController->getTotalBooks(); ?>,
-            mediaResources: <?php echo $resourceController->getTotalMediaResources(); ?>,
-            periodicals: <?php echo $resourceController->getTotalPeriodicals(); ?>
+            books: <?php echo $totalBooks; ?>,
+            mediaResources: <?php echo $totalMedia; ?>,
+            periodicals: <?php echo $totalPeriodicals; ?>
         };
         const initialMonthlyData = [<?php echo implode(',', $monthlyBorrowings); ?>];
     </script>
@@ -169,9 +245,9 @@ $popularResources = $resourceController->getMostBorrowedResources();
                 labels: ['Books', 'Periodicals', 'Media Resources'],
                 datasets: [{
                     data: [
-                        <?php echo $resourceController->getTotalBooks(); ?>,
-                        <?php echo $resourceController->getTotalPeriodicals(); ?>,
-                        <?php echo $resourceController->getTotalMediaResources(); ?>
+                        <?php echo $totalBooks; ?>,
+                        <?php echo $totalPeriodicals; ?>,
+                        <?php echo $totalMedia; ?>
                     ],
                     backgroundColor: [
                         '#2B3377',  // Dark blue for Books
@@ -346,12 +422,24 @@ $popularResources = $resourceController->getMostBorrowedResources();
             initializeMonthlyChart(initialMonthlyData);
 
             document.getElementById('yearSelector').addEventListener('change', function() {
-                fetch(`../controller/get_monthly_borrowings.php?year=${this.value}`)
+                fetch(`../app/handler/get_monthly_borrowings.php?year=${this.value}`)
                     .then(response => response.json())
                     .then(data => {
                         initializeMonthlyChart(data);
                     })
                     .catch(error => console.error('Error:', error));
+            });
+
+            // Modal cleanup
+            var resourceModal = document.getElementById('resourceDetailsModal');
+            resourceModal.addEventListener('hidden.bs.modal', function () {
+                // Remove any lingering modal-backdrop
+                document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                    backdrop.parentNode.removeChild(backdrop);
+                });
+                // Remove blur from body if present
+                document.body.classList.remove('modal-open');
+                document.body.style = '';
             });
         });
     </script>
@@ -422,7 +510,7 @@ $popularResources = $resourceController->getMostBorrowedResources();
     });
     </script>
 
-    <!-- Add this modal at the bottom of the file, before the closing body tag -->
+    <!-- Resource Details Modal (ensure this is present only once) -->
     <div class="modal fade" id="resourceDetailsModal" tabindex="-1" aria-labelledby="resourceDetailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -431,81 +519,10 @@ $popularResources = $resourceController->getMostBorrowedResources();
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="resourceDetailsContent">
-                    <!-- Content will be loaded dynamically -->
+                    <div class="text-center">Loading...</div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Modify the image sections to be clickable -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Make all resource images clickable
-        const resourceImages = document.querySelectorAll('.resource-image');
-        resourceImages.forEach(img => {
-            img.style.cursor = 'pointer';
-            img.addEventListener('click', function() {
-                const resourceId = this.dataset.resourceId;
-                const resourceType = this.dataset.resourceType;
-                fetchResourceDetails(resourceId, resourceType);
-            });
-        });
-
-        function fetchResourceDetails(resourceId, resourceType) {
-            fetch(`../api/get_resource_details.php?resource_id=${resourceId}&type=${resourceType}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        displayResourceDetails(data.resource);
-                    } else {
-                        alert('Error loading resource details');
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        function displayResourceDetails(resource) {
-            // Get status color based on the status value
-            const statusColor = resource.status.toLowerCase() === 'available' 
-                ? 'text-success' 
-                : resource.status.toLowerCase() === 'borrowed' 
-                    ? 'text-warning' 
-                    : 'text-muted';
-
-            let detailsHtml = `
-                <div class="text-center mb-4">
-                    <img src="../${resource.cover_image || 'assets/images/default1.png'}" 
-                         class="img-fluid rounded shadow-sm" 
-                         style="max-height: 200px;" 
-                         alt="Resource Cover">
-                </div>
-                <div class="resource-details">
-                    <h6 class="fw-bold">Title:</h6>
-                    <p>${resource.title}</p>
-                    <h6 class="fw-bold">Category:</h6>
-                    <p>${resource.category}</p>
-                    <h6 class="fw-bold">Status:</h6>
-                    <p class="fw-bold ${statusColor}">${resource.status.toUpperCase()}</p>`;
-
-            // // Add specific details based on resource type
-            // if (resource.author) {
-            //     detailsHtml += `
-            //         <h6 class="fw-bold">Author:</h6>
-            //         <p>${resource.author}</p>
-            //         <h6 class="fw-bold">ISBN:</h6>
-            //         <p>${resource.isbn}</p>
-            //         <h6 class="fw-bold">Publisher:</h6>
-            //         <p>${resource.publisher}</p>
-            //         <h6 class="fw-bold">Edition:</h6>
-            //         <p>${resource.edition}</p>
-            //         <h6 class="fw-bold">Publication Date:</h6>
-            //         <p>${resource.publication_date}</p>`;
-            // }
-
-            document.getElementById('resourceDetailsContent').innerHTML = detailsHtml;
-            new bootstrap.Modal(document.getElementById('resourceDetailsModal')).show();
-        }
-    });
-    </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <?php
-require_once '../config/Database.php';
+require_once __DIR__ . '/../../config/Database.php';
 
 class ActivityLogController {
     private $conn;
@@ -16,7 +16,7 @@ class ActivityLogController {
             
             $stmt = $this->conn->prepare($query);
             
-            $ipAddress = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            $ipAddress = $this->getRealIpAddress();
             
             $stmt->bindParam(":user_id", $userId);
             $stmt->bindParam(":action_type", $actionType);
@@ -28,6 +28,39 @@ class ActivityLogController {
             error_log("Log activity error: " . $e->getMessage());
             return false;
         }
+    }
+
+    private function getRealIpAddress() {
+        // Check for various IP address sources (useful behind proxies/load balancers)
+        $ipKeys = [
+            'HTTP_CF_CONNECTING_IP',     // Cloudflare
+            'HTTP_CLIENT_IP',            // Proxy
+            'HTTP_X_FORWARDED_FOR',      // Load balancer/proxy
+            'HTTP_X_FORWARDED',          // Proxy
+            'HTTP_X_CLUSTER_CLIENT_IP',  // Cluster
+            'HTTP_FORWARDED_FOR',        // Proxy
+            'HTTP_FORWARDED',            // Proxy
+            'REMOTE_ADDR'                // Standard
+        ];
+
+        foreach ($ipKeys as $key) {
+            if (array_key_exists($key, $_SERVER) && !empty($_SERVER[$key])) {
+                $ips = explode(',', $_SERVER[$key]);
+                $ip = trim($ips[0]);
+                
+                // Validate IP address
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $ip;
+                }
+                // Allow private ranges for development
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        // Fallback
+        return '0.0.0.0';
     }
 
     public function logUserUpdate($adminId, $targetUserId, $changes) {

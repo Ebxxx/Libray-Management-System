@@ -1,5 +1,5 @@
 <?php
-require_once '../config/Database.php';
+require_once __DIR__ . '/../../config/Database.php';
 require_once 'Session.php';
 require_once 'ActivityLogController.php';
 
@@ -156,6 +156,111 @@ class UserController {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Get users error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getUsersWithSearch($searchQuery = null) {
+        try {
+            $query = "SELECT user_id, membership_id, username, first_name, last_name, 
+                             email, role, max_books, borrowing_days_limit 
+                      FROM users";
+            
+            $params = [];
+            
+            if ($searchQuery) {
+                $query .= " WHERE (username LIKE :search 
+                           OR CONCAT(first_name, ' ', last_name) LIKE :search 
+                           OR membership_id LIKE :search 
+                           OR CAST(user_id AS CHAR) LIKE :search)";
+                $params[':search'] = '%' . $searchQuery . '%';
+            }
+            
+            $query .= " ORDER BY user_id DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get users with search error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getBulkUserBorrowingStats($userIds = []) {
+        try {
+            if (empty($userIds)) {
+                return [];
+            }
+            
+            $placeholders = str_repeat('?,', count($userIds) - 1) . '?';
+            
+            $query = "SELECT 
+                        b.user_id,
+                        COUNT(*) as total_borrowings,
+                        SUM(CASE WHEN b.status = 'active' THEN 1 ELSE 0 END) as active_borrowings,
+                        SUM(CASE WHEN b.status = 'overdue' THEN 1 ELSE 0 END) as overdue_borrowings
+                      FROM borrowings b 
+                      WHERE b.user_id IN ($placeholders)
+                      GROUP BY b.user_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute($userIds);
+            
+            $result = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $result[$row['user_id']] = $row;
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Get bulk user borrowing stats error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getUsersWithBorrowingStats($searchQuery = null) {
+        try {
+            $query = "SELECT 
+                        u.user_id, u.membership_id, u.username, u.first_name, u.last_name, 
+                        u.email, u.role, u.max_books, u.borrowing_days_limit,
+                        COALESCE(b.total_borrowings, 0) as total_borrowings,
+                        COALESCE(b.active_borrowings, 0) as active_borrowings,
+                        COALESCE(b.overdue_borrowings, 0) as overdue_borrowings
+                      FROM users u
+                      LEFT JOIN (
+                          SELECT 
+                              user_id,
+                              COUNT(*) as total_borrowings,
+                              SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_borrowings,
+                              SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) as overdue_borrowings
+                          FROM borrowings 
+                          GROUP BY user_id
+                      ) b ON u.user_id = b.user_id";
+            
+            $params = [];
+            
+            if ($searchQuery) {
+                $query .= " WHERE (u.username LIKE :search 
+                           OR CONCAT(u.first_name, ' ', u.last_name) LIKE :search 
+                           OR u.membership_id LIKE :search 
+                           OR CAST(u.user_id AS CHAR) LIKE :search)";
+                $params[':search'] = '%' . $searchQuery . '%';
+            }
+            
+            $query .= " ORDER BY u.user_id DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get users with borrowing stats error: " . $e->getMessage());
             return [];
         }
     }

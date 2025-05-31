@@ -1,6 +1,6 @@
 <?php
-require_once '../controller/ResourceController.php';
-require_once '../controller/Session.php';
+require_once '../app/handler/ResourceController.php';
+require_once '../app/handler/Session.php';
 
 Session::start();
 Session::requireAdmin();
@@ -217,7 +217,7 @@ $error_message = Session::getFlash('error');
                                 <label class="form-label">ISBN</label>
                                 <input type="text" class="form-control" name="isbn" id="isbn" required>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-6 mb-3">`
                                 <label class="form-label">Category</label>
                                 <select class="form-select" name="category" id="category" required>
                                     <option value="">Select Category</option>

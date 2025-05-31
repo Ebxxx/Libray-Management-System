@@ -1,6 +1,6 @@
 <?php
-require_once '../controller/Session.php';
-require_once '../controller/BorrowingController.php';
+require_once '../app/handler/Session.php';
+require_once '../app/handler/BorrowingController.php';
 
 Session::start();
 

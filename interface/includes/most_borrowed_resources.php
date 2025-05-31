@@ -227,24 +227,37 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function fetchResourceDetails(resourceId, resourceType) {
+        document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-center">Loading...</div>';
         fetch(`../api/get_resource_details.php?resource_id=${resourceId}&type=${resourceType}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     displayResourceDetails(data.resource);
                 } else {
-                    alert('Error loading resource details');
+                    document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                document.getElementById('resourceDetailsContent').innerHTML = '<div class="text-danger">Error loading resource details.</div>';
+            });
     }
 
     function displayResourceDetails(resource) {
-        const statusColor = resource.status.toLowerCase() === 'available' 
+        const statusColor = resource.status && resource.status.toLowerCase() === 'available' 
             ? 'text-success' 
-            : resource.status.toLowerCase() === 'borrowed' 
+            : resource.status && resource.status.toLowerCase() === 'borrowed' 
                 ? 'text-warning' 
                 : 'text-muted';
+
+        // Determine resource type badge
+        let resourceTypeBadge = '';
+        if (resource.resource_type === 'book') {
+            resourceTypeBadge = '<span class="badge bg-primary">Book</span>';
+        } else if (resource.resource_type === 'periodical') {
+            resourceTypeBadge = '<span class="badge bg-warning">Periodical</span>';
+        } else if (resource.resource_type === 'media') {
+            resourceTypeBadge = '<span class="badge bg-info">Media</span>';
+        }
 
         let detailsHtml = `
             <div class="text-center mb-4">
@@ -255,38 +268,64 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="resource-details">
                 <h6 class="fw-bold">Title:</h6>
-                <p>${resource.title}</p>
+                <p>${resource.title || 'N/A'}</p>
+                <h6 class="fw-bold">Resource Type:</h6>
+                <p>${resourceTypeBadge}</p>
                 <h6 class="fw-bold">Category:</h6>
-                <p>${resource.category}</p>
+                <p>${resource.type || 'N/A'}</p>
+                <h6 class="fw-bold">Accession Number:</h6>
+                <p>${resource.accession_number || 'N/A'}</p>
                 <h6 class="fw-bold">Status:</h6>
-                <p class="fw-bold ${statusColor}">${resource.status.toUpperCase()}</p>`;
+                <p class="fw-bold ${statusColor}">${resource.status ? resource.status.toUpperCase() : 'N/A'}</p>`;
 
+        // Book details
         if (resource.author) {
             detailsHtml += `
                 <h6 class="fw-bold">Author:</h6>
                 <p>${resource.author}</p>
                 <h6 class="fw-bold">ISBN:</h6>
-                <p>${resource.isbn}</p>
+                <p>${resource.isbn || 'N/A'}</p>
                 <h6 class="fw-bold">Publisher:</h6>
-                <p>${resource.publisher}</p>
+                <p>${resource.publisher || 'N/A'}</p>
                 <h6 class="fw-bold">Edition:</h6>
-                <p>${resource.edition}</p>
+                <p>${resource.edition || 'N/A'}</p>
                 <h6 class="fw-bold">Publication Date:</h6>
-                <p>${resource.publication_date}</p>`;
+                <p>${resource.publication_date || 'N/A'}</p>`;
         }
 
+        // Periodical details
+        if (resource.issn || resource.volume || resource.issue) {
+            detailsHtml += `
+                <h6 class="fw-bold">ISSN:</h6>
+                <p>${resource.issn || 'N/A'}</p>
+                <h6 class="fw-bold">Volume:</h6>
+                <p>${resource.volume || 'N/A'}</p>
+                <h6 class="fw-bold">Issue:</h6>
+                <p>${resource.issue || 'N/A'}</p>
+                <h6 class="fw-bold">Publication Date:</h6>
+                <p>${resource.publication_date || 'N/A'}</p>`;
+        }
+
+        // Media details
+        if (resource.media_type || resource.runtime || resource.format) {
+            detailsHtml += `
+                <h6 class="fw-bold">Media Type:</h6>
+                <p>${resource.media_type || 'N/A'}</p>
+                <h6 class="fw-bold">Format:</h6>
+                <p>${resource.format || 'N/A'}</p>
+                <h6 class="fw-bold">Runtime:</h6>
+                <p>${resource.runtime ? resource.runtime + ' minutes' : 'N/A'}</p>`;
+        }
+
+        detailsHtml += '</div>';
+
         document.getElementById('resourceDetailsContent').innerHTML = detailsHtml;
-        
+        // Only show the modal here!
         const modal = new bootstrap.Modal(document.getElementById('resourceDetailsModal'), {
             backdrop: true,
             keyboard: true,
             focus: true
         });
-        
-        document.getElementById('resourceDetailsModal').addEventListener('show.bs.modal', function () {
-            this.style.transition = 'all .2s ease-out';
-        });
-        
         modal.show();
     }
 });
