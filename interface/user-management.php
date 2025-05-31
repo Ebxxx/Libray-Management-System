@@ -9,20 +9,20 @@ if (!($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'staff')) {
     exit();
 }
 
+// Optimized user data fetching
 $userController = new UserController();
-$users = $userController->getUsers();
+$borrowingController = new BorrowingController();
 
-// Add search functionality
+// Use the optimized search method
 $searchQuery = filter_input(INPUT_GET, 'search', FILTER_SANITIZE_STRING);
-if ($searchQuery) {
-    $users = array_filter($users, function($user) use ($searchQuery) {
-        $searchLower = strtolower($searchQuery);
-        return strpos(strtolower($user['username']), $searchLower) !== false ||
-               strpos(strtolower($user['first_name'] . ' ' . $user['last_name']), $searchLower) !== false ||
-               strpos(strtolower($user['membership_id']), $searchLower) !== false ||
-               strpos((string)$user['user_id'], $searchQuery) !== false;
-    });
-}
+$users = $userController->getUsersWithSearch($searchQuery);
+
+// Get all user IDs for bulk operations
+$userIds = array_column($users, 'user_id');
+
+// Fetch all borrowing data in bulk (single query instead of N queries)
+$bulkBorrowingHistory = $borrowingController->getBulkUserBorrowingHistory($userIds);
+$activeBorrowingsCounts = $borrowingController->getBulkActiveBorrowingsCount($userIds);
 
 // Define role configurations
 $roleConfig = [
@@ -176,20 +176,23 @@ $error_message = Session::getFlash('error');
                 <?php endif; ?>
 
                 <div class="page-header d-flex justify-content-between align-items-center">
-                    <h2 class="mb-0">User Management</h2>
+                    <h2 class="mb-0">User Management 
+                        <small class="text-light">(<?php echo count($users); ?> users<?php echo $searchQuery ? ' found' : ''; ?>)</small>
+                    </h2>
                     <div class="d-flex align-items-center">
-                        <form class="me-3" method="GET" action="">
+                        <form class="me-3" method="GET" action="" id="searchForm">
                             <div class="input-group">
                                 <input type="text" 
                                        class="form-control" 
                                        placeholder="Search users" 
                                        name="search"
+                                       id="searchInput"
                                        value="<?php echo htmlspecialchars($searchQuery ?? ''); ?>">
-                                <button class="btn btn-outline-secondary" type="submit">
+                                <button class="btn btn-outline-secondary" type="submit" id="searchBtn">
                                     <i class="bi bi-search"></i>
                                 </button>
                                 <?php if ($searchQuery): ?>
-                                    <a href="user-management.php" class="btn btn-outline-secondary">
+                                    <a href="user-management.php" class="btn btn-outline-secondary" title="Clear search">
                                         <i class="bi bi-x-lg"></i>
                                     </a>
                                 <?php endif; ?>
@@ -204,7 +207,15 @@ $error_message = Session::getFlash('error');
                     </div>
                 </div>
 
-                <div class="table-responsive">
+                <!-- Loading indicator -->
+                <div id="loadingIndicator" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading users...</p>
+                </div>
+
+                <div class="table-responsive" id="userTable">
                     <table class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
@@ -222,12 +233,12 @@ $error_message = Session::getFlash('error');
                         </thead>
                         <tbody>
                             <?php foreach ($users as $user): 
-                                // Get user's borrowings
-                                $borrowingController = new BorrowingController();
-                                $userBorrowings = $borrowingController->getUserBorrowingHistory($user['user_id']);
+                                // Get user's borrowings from bulk data (no additional queries)
+                                $userBorrowings = $bulkBorrowingHistory[$user['user_id']] ?? [];
                                 $activeBorrowings = array_filter($userBorrowings, function($borrowing) {
                                     return $borrowing['status'] === 'active';
                                 });
+                                $activeBorrowingsCount = $activeBorrowingsCounts[$user['user_id']] ?? 0;
                             ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($user['user_id']); ?></td>
@@ -239,20 +250,12 @@ $error_message = Session::getFlash('error');
                                 <td><?php echo htmlspecialchars($user['max_books']); ?></td>
                                 <td><?php echo htmlspecialchars($user['borrowing_days_limit']); ?> days</td>
                                 <td>
-                                    <?php 
-                                    $borrowingController = new BorrowingController();
-                                    $userBorrowings = $borrowingController->getUserBorrowingHistory($user['user_id']);
-                                    $activeBorrowings = array_filter($userBorrowings, function($borrowing) {
-                                        return $borrowing['status'] === 'active';
-                                    });
-                                    
-                                    // Show button regardless of active borrowings
-                                    ?>
+                                    <!-- Show button with count from bulk data -->
                                     <button class="btn btn-sm text-primary" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#borrowingsModal<?php echo $user['user_id']; ?>">
                                         <i class="bi bi-book"></i> 
-                                        View <?php echo !empty($activeBorrowings) ? '(' . count($activeBorrowings) . ')' : ''; ?>
+                                        View <?php echo $activeBorrowingsCount > 0 ? '(' . $activeBorrowingsCount . ')' : ''; ?>
                                     </button>
 
                                     <!-- Borrowings Modal -->
@@ -270,12 +273,12 @@ $error_message = Session::getFlash('error');
                                                     <ul class="nav nav-tabs" role="tablist">
                                                         <li class="nav-item">
                                                             <a class="nav-link active" data-bs-toggle="tab" href="#active<?php echo $user['user_id']; ?>">
-                                                                Active Borrowings
+                                                                Active Borrowings (<?php echo count($activeBorrowings); ?>)
                                                             </a>
                                                         </li>
                                                         <li class="nav-item">
                                                             <a class="nav-link" data-bs-toggle="tab" href="#history<?php echo $user['user_id']; ?>">
-                                                                Borrowing History
+                                                                Full History (<?php echo count($userBorrowings); ?>)
                                                             </a>
                                                         </li>
                                                     </ul>
@@ -296,28 +299,34 @@ $error_message = Session::getFlash('error');
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        <?php foreach ($activeBorrowings as $borrowing): ?>
+                                                                        <?php if (empty($activeBorrowings)): ?>
                                                                             <tr>
-                                                                                <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
-                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
-                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
-                                                                                <td>
-                                                                                    <span class="badge <?php 
-                                                                                        echo $borrowing['status'] === 'overdue' ? 'bg-danger' : 
-                                                                                            ($borrowing['status'] === 'active' ? 'bg-warning' : 'bg-success'); 
-                                                                                    ?>">
-                                                                                        <?php echo ucfirst(htmlspecialchars($borrowing['status'])); ?>
-                                                                                    </span>
-                                                                                </td>
-                                                                                <td>
-                                                                                    <?php 
-                                                                                    echo $borrowing['fine_amount'] > 0 
-                                                                                        ? '$' . number_format($borrowing['fine_amount'], 2) 
-                                                                                        : '-';
-                                                                                    ?>
-                                                                                </td>
+                                                                                <td colspan="5" class="text-center text-muted">No active borrowings</td>
                                                                             </tr>
-                                                                        <?php endforeach; ?>
+                                                                        <?php else: ?>
+                                                                            <?php foreach ($activeBorrowings as $borrowing): ?>
+                                                                                <tr>
+                                                                                    <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
+                                                                                    <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
+                                                                                    <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
+                                                                                    <td>
+                                                                                        <span class="badge <?php 
+                                                                                            echo $borrowing['status'] === 'overdue' ? 'bg-danger' : 
+                                                                                                ($borrowing['status'] === 'active' ? 'bg-warning' : 'bg-success'); 
+                                                                                        ?>">
+                                                                                            <?php echo ucfirst(htmlspecialchars($borrowing['status'])); ?>
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <?php 
+                                                                                        echo $borrowing['fine_amount'] > 0 
+                                                                                            ? '$' . number_format($borrowing['fine_amount'], 2) 
+                                                                                            : '-';
+                                                                                        ?>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            <?php endforeach; ?>
+                                                                        <?php endif; ?>
                                                                     </tbody>
                                                                 </table>
                                                             </div>
@@ -338,33 +347,39 @@ $error_message = Session::getFlash('error');
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        <?php foreach ($userBorrowings as $borrowing): ?>
+                                                                        <?php if (empty($userBorrowings)): ?>
                                                                             <tr>
-                                                                                <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
-                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
-                                                                                <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
-                                                                                <td>
-                                                                                    <?php echo $borrowing['return_date'] 
-                                                                                        ? date('M d, Y', strtotime($borrowing['return_date'])) 
-                                                                                        : 'Not returned'; ?>
-                                                                                </td>
-                                                                                <td>
-                                                                                    <span class="badge <?php 
-                                                                                        echo $borrowing['status'] === 'overdue' ? 'bg-danger' : 
-                                                                                            ($borrowing['status'] === 'active' ? 'bg-warning' : 'bg-success'); 
-                                                                                    ?>">
-                                                                                        <?php echo ucfirst(htmlspecialchars($borrowing['status'])); ?>
-                                                                                    </span>
-                                                                                </td>
-                                                                                <td>
-                                                                                    <?php 
-                                                                                    echo $borrowing['fine_amount'] > 0 
-                                                                                        ? '$' . number_format($borrowing['fine_amount'], 2) 
-                                                                                        : '-';
-                                                                                    ?>
-                                                                                </td>
+                                                                                <td colspan="6" class="text-center text-muted">No borrowing history</td>
                                                                             </tr>
-                                                                        <?php endforeach; ?>
+                                                                        <?php else: ?>
+                                                                            <?php foreach ($userBorrowings as $borrowing): ?>
+                                                                                <tr>
+                                                                                    <td><?php echo htmlspecialchars($borrowing['title']); ?></td>
+                                                                                    <td><?php echo date('M d, Y', strtotime($borrowing['borrow_date'])); ?></td>
+                                                                                    <td><?php echo date('M d, Y', strtotime($borrowing['due_date'])); ?></td>
+                                                                                    <td>
+                                                                                        <?php echo $borrowing['return_date'] 
+                                                                                            ? date('M d, Y', strtotime($borrowing['return_date'])) 
+                                                                                            : 'Not returned'; ?>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <span class="badge <?php 
+                                                                                            echo $borrowing['status'] === 'overdue' ? 'bg-danger' : 
+                                                                                                ($borrowing['status'] === 'active' ? 'bg-warning' : 'bg-success'); 
+                                                                                        ?>">
+                                                                                            <?php echo ucfirst(htmlspecialchars($borrowing['status'])); ?>
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <?php 
+                                                                                        echo $borrowing['fine_amount'] > 0 
+                                                                                            ? '$' . number_format($borrowing['fine_amount'], 2) 
+                                                                                            : '-';
+                                                                                        ?>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            <?php endforeach; ?>
+                                                                        <?php endif; ?>
                                                                     </tbody>
                                                                 </table>
                                                             </div>
@@ -479,36 +494,82 @@ $error_message = Session::getFlash('error');
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/user-management.js"></script>
     <script>
-        // Add this to your existing JavaScript that handles the edit user modal
-document.addEventListener('DOMContentLoaded', function() {
-    // ... existing code ...
+        // Optimized search and loading experience
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchForm = document.getElementById('searchForm');
+            const searchInput = document.getElementById('searchInput');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const userTable = document.getElementById('userTable');
 
-    // When role changes, update default max_books
-    document.getElementById('role').addEventListener('change', function() {
-        const roleDefaults = {
-            'admin': 10,
-            'faculty': 5,
-            'staff': 4,
-            'student': 3
-        };
-        const maxBooksInput = document.getElementById('max_books');
-        // Only set default if the field is empty or when creating new user
-        if (!document.getElementById('user_id').value || !maxBooksInput.value) {
-            maxBooksInput.value = roleDefaults[this.value] || 3;
-        }
-    });
+            // Show loading on form submit
+            searchForm.addEventListener('submit', function() {
+                loadingIndicator.style.display = 'block';
+                userTable.style.opacity = '0.5';
+            });
 
-    // When editing user, populate max_books
-    const editButtons = document.querySelectorAll('.edit-user');
-    editButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const userData = JSON.parse(this.dataset.user);
-            document.getElementById('max_books').value = userData.max_books;
-            document.getElementById('borrowing_days_limit').value = 
-                userData.borrowing_days_limit || 7; // Default to 7 if not set
+            // Auto-submit search with debounce for better UX
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                // Only auto-search if query is long enough or empty (for clearing)
+                if (query.length >= 2 || query.length === 0) {
+                    searchTimeout = setTimeout(() => {
+                        // Show loading
+                        loadingIndicator.style.display = 'block';
+                        userTable.style.opacity = '0.5';
+                        
+                        // Submit form
+                        searchForm.submit();
+                    }, 500); // 500ms debounce
+                }
+            });
+
+            // Performance logging
+            console.log('User Management loaded with <?php echo count($users); ?> users');
+            console.log('Bulk borrowing data fetched for <?php echo count($userIds); ?> users');
+
+            // Enhanced modal interactions
+            document.querySelectorAll('[data-bs-toggle="modal"]').forEach(function(element) {
+                element.addEventListener('click', function() {
+                    // Add subtle loading effect to modal buttons
+                    this.style.opacity = '0.7';
+                    setTimeout(() => {
+                        this.style.opacity = '1';
+                    }, 200);
+                });
+            });
         });
-    });
-});
+
+        // Add this to your existing JavaScript that handles the edit user modal
+        document.addEventListener('DOMContentLoaded', function() {
+            // When role changes, update default max_books
+            document.getElementById('role').addEventListener('change', function() {
+                const roleDefaults = {
+                    'admin': 10,
+                    'faculty': 5,
+                    'staff': 4,
+                    'student': 3
+                };
+                const maxBooksInput = document.getElementById('max_books');
+                // Only set default if the field is empty or when creating new user
+                if (!document.getElementById('user_id').value || !maxBooksInput.value) {
+                    maxBooksInput.value = roleDefaults[this.value] || 3;
+                }
+            });
+
+            // When editing user, populate max_books
+            const editButtons = document.querySelectorAll('.edit-user');
+            editButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const userData = JSON.parse(this.dataset.user);
+                    document.getElementById('max_books').value = userData.max_books;
+                    document.getElementById('borrowing_days_limit').value = 
+                        userData.borrowing_days_limit || 7; // Default to 7 if not set
+                });
+            });
+        });
     </script>
 </body>
 </html>

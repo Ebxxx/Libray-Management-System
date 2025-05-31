@@ -386,6 +386,95 @@ class BorrowingController {
         }
     }
 
+    public function getBulkUserBorrowingHistory($userIds = []) {
+        try {
+            if (empty($userIds)) {
+                return [];
+            }
+            
+            $placeholders = str_repeat('?,', count($userIds) - 1) . '?';
+            
+            $query = "SELECT 
+                        b.borrowing_id, 
+                        b.user_id,
+                        lr.title, 
+                        b.borrow_date, 
+                        b.due_date, 
+                        b.return_date, 
+                        b.status, 
+                        b.fine_amount
+                      FROM borrowings b
+                      JOIN library_resources lr ON b.resource_id = lr.resource_id
+                      WHERE b.user_id IN ($placeholders)
+                      ORDER BY b.user_id, b.borrow_date DESC";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute($userIds);
+            
+            $result = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $userId = $row['user_id'];
+                if (!isset($result[$userId])) {
+                    $result[$userId] = [];
+                }
+                $result[$userId][] = $row;
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Get bulk user borrowing history error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getUserActiveBorrowingsCount($user_id) {
+        try {
+            $query = "SELECT COUNT(*) as count 
+                      FROM borrowings 
+                      WHERE user_id = :user_id AND status = 'active'";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(":user_id", $user_id);
+            $stmt->execute();
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['count'] ?? 0;
+        } catch (PDOException $e) {
+            error_log("Get user active borrowings count error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function getBulkActiveBorrowingsCount($userIds = []) {
+        try {
+            if (empty($userIds)) {
+                return [];
+            }
+            
+            $placeholders = str_repeat('?,', count($userIds) - 1) . '?';
+            
+            $query = "SELECT 
+                        user_id,
+                        COUNT(*) as active_count
+                      FROM borrowings 
+                      WHERE user_id IN ($placeholders) AND status = 'active'
+                      GROUP BY user_id";
+            
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute($userIds);
+            
+            $result = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $result[$row['user_id']] = $row['active_count'];
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Get bulk active borrowings count error: " . $e->getMessage());
+            return [];
+        }
+    }
+
     public function getAvailableBooks($type = 'book') {
         try {
             $query = "SELECT lr.*, b.* 
